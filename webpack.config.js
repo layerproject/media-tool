@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const Dotenv = require('dotenv-webpack');
 
 module.exports = {
   entry: './src/renderer/index.tsx',
@@ -56,6 +57,11 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './src/renderer/index.html',
       filename: 'index.html'
+    }),
+    new Dotenv({
+      path: './.env.local',
+      safe: false,
+      systemvars: true
     })
   ],
   devtool: 'source-map',

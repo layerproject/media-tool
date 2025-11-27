@@ -8,15 +8,16 @@ import BunnyCDN from '@/views/BunnyCDN';
 
 interface ContentAreaProps {
   activeView: string;
+  onNavigate?: (view: string) => void;
 }
 
-const ContentArea: React.FC<ContentAreaProps> = ({ activeView }) => {
+const ContentArea: React.FC<ContentAreaProps> = ({ activeView, onNavigate }) => {
   const renderContent = () => {
     switch (activeView) {
       case 'sign-in-layer':
-        return <SignInToLayer />;
+        return <SignInToLayer onNavigate={onNavigate} />;
       case 'search-artworks':
-        return <SearchArtworks />;
+        return <SearchArtworks onNavigate={onNavigate} />;
       case 'screen-record':
         return <ScreenRecord />;
       case 'video-tools':

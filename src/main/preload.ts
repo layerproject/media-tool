@@ -9,6 +9,12 @@ import { contextBridge, ipcRenderer } from 'electron';
 export interface ElectronAPI {
   getVersion: () => Promise<string>;
   getPath: (name: string) => Promise<string>;
+  // Auth storage methods
+  setTokens: (accessToken: string, refreshToken: string, expiresAt: number) => Promise<void>;
+  getAccessToken: () => Promise<string | undefined>;
+  getRefreshToken: () => Promise<string | undefined>;
+  clearTokens: () => Promise<void>;
+  isTokenValid: () => Promise<boolean>;
 }
 
 export interface PlatformInfo {
@@ -22,11 +28,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   getPath: (name: string): Promise<string> => ipcRenderer.invoke('app:getPath', name),
 
-  // Add more API methods here as needed
-  // Example:
-  // sendMessage: (channel: string, data: any) => ipcRenderer.send(channel, data),
-  // onMessage: (channel: string, callback: (...args: any[]) => void) =>
-  //   ipcRenderer.on(channel, (event, ...args) => callback(...args))
+  // Auth storage methods
+  setTokens: (accessToken: string, refreshToken: string, expiresAt: number): Promise<void> =>
+    ipcRenderer.invoke('auth:setTokens', accessToken, refreshToken, expiresAt),
+  getAccessToken: (): Promise<string | undefined> =>
+    ipcRenderer.invoke('auth:getAccessToken'),
+  getRefreshToken: (): Promise<string | undefined> =>
+    ipcRenderer.invoke('auth:getRefreshToken'),
+  clearTokens: (): Promise<void> =>
+    ipcRenderer.invoke('auth:clearTokens'),
+  isTokenValid: (): Promise<boolean> =>
+    ipcRenderer.invoke('auth:isTokenValid'),
 } as ElectronAPI);
 
 /**

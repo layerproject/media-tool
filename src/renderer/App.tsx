@@ -8,6 +8,12 @@ declare global {
     electronAPI: {
       getVersion: () => Promise<string>;
       getPath: (name: string) => Promise<string>;
+      // Auth storage methods
+      setTokens: (accessToken: string, refreshToken: string, expiresAt: number) => Promise<void>;
+      getAccessToken: () => Promise<string | undefined>;
+      getRefreshToken: () => Promise<string | undefined>;
+      clearTokens: () => Promise<void>;
+      isTokenValid: () => Promise<boolean>;
     };
     platform: {
       isMac: boolean;
@@ -23,7 +29,7 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar activeItem={activeView} onItemClick={setActiveView} />
-      <ContentArea activeView={activeView} />
+      <ContentArea activeView={activeView} onNavigate={setActiveView} />
     </div>
   );
 };

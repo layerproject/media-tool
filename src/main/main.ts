@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent } from 'electron';
 import * as path from 'path';
+import { authStore } from './store';
 
 // Keep a global reference of the window object
 let mainWindow: BrowserWindow | null;
@@ -68,4 +69,27 @@ ipcMain.handle('app:getVersion', (): string => {
 
 ipcMain.handle('app:getPath', (_event: IpcMainInvokeEvent, name: string): string => {
   return app.getPath(name as any);
+});
+
+/**
+ * Auth storage IPC handlers
+ */
+ipcMain.handle('auth:setTokens', (_event: IpcMainInvokeEvent, accessToken: string, refreshToken: string, expiresAt: number): void => {
+  authStore.setTokens(accessToken, refreshToken, expiresAt);
+});
+
+ipcMain.handle('auth:getAccessToken', (): string | undefined => {
+  return authStore.getAccessToken();
+});
+
+ipcMain.handle('auth:getRefreshToken', (): string | undefined => {
+  return authStore.getRefreshToken();
+});
+
+ipcMain.handle('auth:clearTokens', (): void => {
+  authStore.clearTokens();
+});
+
+ipcMain.handle('auth:isTokenValid', (): boolean => {
+  return authStore.isTokenValid();
 });
