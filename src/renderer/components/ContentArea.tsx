@@ -1,5 +1,10 @@
 import React from 'react';
 import SignInToLayer from '@/views/SignInToLayer';
+import SearchArtworks from '@/views/SearchArtworks';
+import ScreenRecord from '@/views/ScreenRecord';
+import VideoTools from '@/views/VideoTools';
+import ImageTools from '@/views/ImageTools';
+import BunnyCDN from '@/views/BunnyCDN';
 
 interface ContentAreaProps {
   activeView: string;
@@ -11,40 +16,15 @@ const ContentArea: React.FC<ContentAreaProps> = ({ activeView }) => {
       case 'sign-in-layer':
         return <SignInToLayer />;
       case 'search-artworks':
-        return (
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Search Artworks</h2>
-            <p className="text-muted-foreground">Search artworks content goes here...</p>
-          </div>
-        );
+        return <SearchArtworks />;
       case 'screen-record':
-        return (
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Screen Record</h2>
-            <p className="text-muted-foreground">Screen recording tools go here...</p>
-          </div>
-        );
+        return <ScreenRecord />;
       case 'video-tools':
-        return (
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Video Tools</h2>
-            <p className="text-muted-foreground">Video tools content goes here...</p>
-          </div>
-        );
+        return <VideoTools />;
       case 'image-tools':
-        return (
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Image Tools</h2>
-            <p className="text-muted-foreground">Image tools content goes here...</p>
-          </div>
-        );
+        return <ImageTools />;
       case 'bunny-cdn':
-        return (
-          <div>
-            <h2 className="text-2xl font-semibold mb-4">Bunny CDN</h2>
-            <p className="text-muted-foreground">Bunny CDN management goes here...</p>
-          </div>
-        );
+        return <BunnyCDN />;
       default:
         return null;
     }
