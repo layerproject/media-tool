@@ -295,14 +295,20 @@ async function encodeVideo(options: RecordingOptions): Promise<void> {
   const { width, height } = RESOLUTIONS[options.resolution];
   const inputPattern = path.join(state.tempDir, 'frame_%06d.jpg');
 
+  // Base ffmpeg args with progress output enabled
+  const baseArgs = [
+    '-y',
+    '-framerate', String(FRAME_RATE),
+    '-i', inputPattern,
+    '-progress', 'pipe:1', // Output progress to stdout
+  ];
+
   let ffmpegArgs: string[];
 
   if (options.format === 'prores') {
     // ProRes 4444 - high quality professional format
     ffmpegArgs = [
-      '-y',
-      '-framerate', String(FRAME_RATE),
-      '-i', inputPattern,
+      ...baseArgs,
       '-c:v', 'prores_ks',
       '-profile:v', '4', // ProRes 4444
       '-pix_fmt', 'yuva444p10le',
@@ -312,9 +318,7 @@ async function encodeVideo(options: RecordingOptions): Promise<void> {
   } else {
     // H.264 MP4 - high quality, widely compatible
     ffmpegArgs = [
-      '-y',
-      '-framerate', String(FRAME_RATE),
-      '-i', inputPattern,
+      ...baseArgs,
       '-c:v', 'libx264',
       '-preset', 'slow', // Better quality
       '-crf', '15', // Lower = higher quality (18 was default)
@@ -328,8 +332,26 @@ async function encodeVideo(options: RecordingOptions): Promise<void> {
 
   state.ffmpegProcess = spawn(ffmpegPath, ffmpegArgs);
 
+  // Parse progress from stdout (machine-readable format from -progress pipe:1)
+  // Format: key=value lines, with "progress=continue" or "progress=end" markers
+  state.ffmpegProcess.stdout?.on('data', (data) => {
+    const output = data.toString();
+    // Look for frame= line to track encoding progress
+    const frameMatch = output.match(/frame=(\d+)/);
+    if (frameMatch && state.onProgress) {
+      const encodedFrames = parseInt(frameMatch[1], 10);
+      // Calculate encoding progress (100-200 range, where 100 = capture done, 200 = encoding done)
+      const encodingProgress = 100 + (encodedFrames / state.totalFrames) * 100;
+      state.onProgress(Math.min(encodingProgress, 199)); // Cap at 199, 200 means complete
+    }
+  });
+
   state.ffmpegProcess.stderr?.on('data', (data) => {
-    console.log('ffmpeg:', data.toString());
+    // Only log errors, not progress (which we get from stdout now)
+    const output = data.toString();
+    if (!output.includes('frame=') && !output.includes('fps=')) {
+      console.log('ffmpeg:', output);
+    }
   });
 
   state.ffmpegProcess.on('close', (code) => {

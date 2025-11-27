@@ -72,10 +72,15 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
   // Set up recording event listeners
   useEffect(() => {
     window.electronAPI.onRecordingProgress((prog) => {
-      setProgress(prog);
+      // Progress is 0-100 for capture, 100-200 for encoding
       if (prog >= 100) {
-        setStatus('Encoding...');
+        // Encoding phase: normalize 100-200 to 0-100 for display
+        const encodingProgress = prog - 100;
+        setProgress(encodingProgress);
+        setStatus(`Encoding... ${Math.round(encodingProgress)}%`);
       } else {
+        // Capture phase
+        setProgress(prog);
         setStatus(`Capturing frames... ${Math.round(prog)}%`);
       }
     });

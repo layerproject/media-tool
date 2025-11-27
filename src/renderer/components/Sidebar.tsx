@@ -16,7 +16,7 @@ interface SidebarProps {
 
 const menuItems: MenuItem[] = [
   { id: 'search-artworks', label: 'Search artworks', icon: <Search className="w-4 h-4" /> },
-  { id: 'screen-record', label: 'Screen record', icon: <MonitorPlay className="w-4 h-4" /> },
+  { id: 'screen-record', label: 'Artwork Capture', icon: <MonitorPlay className="w-4 h-4" /> },
   { id: 'video-tools', label: 'Video Tools', icon: <Video className="w-4 h-4" /> },
   { id: 'image-tools', label: 'Image Tools', icon: <Image className="w-4 h-4" /> },
   { id: 'bunny-cdn', label: 'Bunny CDN', icon: <Cloud className="w-4 h-4" /> },
