@@ -14,12 +14,16 @@ import {
   AssetMediaVariant,
   GET_ARTWORK_VARIATIONS,
   GetArtworkVariationsResult,
-  Variation
+  Variation,
+  GET_CDN_URL,
+  GetCdnUrlResult
 } from '@/lib/queries';
-import { VariationData } from '@/App';
+import { VariationData, SearchState } from '@/App';
 
 interface SearchArtworksProps {
   onNavigate?: (view: string, data?: VariationData) => void;
+  searchState?: SearchState;
+  onSearchStateChange?: (state: SearchState) => void;
 }
 
 // API URL for thumbnail requests (generative artworks)
@@ -60,6 +64,29 @@ function getThumbnailUrl(artwork: Artwork): string | null {
  */
 function getVariationThumbnailUrl(variationId: string): string {
   return `${API_URL}/api/thumbnail/variation/${variationId}/thumbnail.jpg`;
+}
+
+/**
+ * Get asset info for VIDEO artworks download
+ * Returns the asset ID (for fetching signed CDN URL) and suggested filename
+ */
+function getAssetDownloadInfo(artwork: Artwork): { assetId: string; filename: string } | null {
+  if (!artwork.versions?.length) return null;
+
+  const latestVersion = artwork.versions[0];
+  if (!latestVersion.assets?.length) return null;
+
+  const asset = latestVersion.assets[0];
+  if (!asset.id) return null;
+
+  // Generate filename from artwork title and artist
+  const safeTitle = artwork.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+  const safeArtist = (artwork.artist.name || artwork.artist.username || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+
+  // Default to mp4 extension (CDN returns hevc-q4.mp4)
+  const filename = `${safeArtist}_${safeTitle}.mp4`;
+
+  return { assetId: asset.id, filename };
 }
 
 /**
@@ -199,16 +226,33 @@ const ArtworkDetail: React.FC<ArtworkDetailProps> = ({ artwork, onBack, onNaviga
   );
 };
 
-const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
+const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState, onSearchStateChange }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
-  const [searchResults, setSearchResults] = useState<Artwork[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [selectedArtwork, setSelectedArtwork] = useState<Artwork | null>(null);
+
+  // Use persisted state from parent, with local fallback
+  const searchQuery = searchState?.searchQuery ?? '';
+  const searchResults = (searchState?.searchResults ?? []) as Artwork[];
+  const totalCount = searchState?.totalCount ?? 0;
+  const selectedArtwork = (searchState?.selectedArtwork ?? null) as Artwork | null;
+
+  // Helper to update persisted state
+  const updateState = (updates: Partial<SearchState>) => {
+    if (onSearchStateChange) {
+      onSearchStateChange({
+        searchQuery: updates.searchQuery ?? searchState?.searchQuery ?? '',
+        searchResults: updates.searchResults ?? searchState?.searchResults ?? [],
+        totalCount: updates.totalCount ?? searchState?.totalCount ?? 0,
+        selectedArtwork: updates.selectedArtwork !== undefined ? updates.selectedArtwork : (searchState?.selectedArtwork ?? null),
+      });
+    }
+  };
+
+  const setSearchQuery = (query: string) => updateState({ searchQuery: query });
+  const setSelectedArtwork = (artwork: Artwork | null) => updateState({ selectedArtwork: artwork });
 
   const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000000';
 
@@ -265,7 +309,7 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
       } else {
         setOrganizations([]);
         setSelectedOrgId(null);
-        setSearchResults([]);
+        updateState({ searchResults: [], totalCount: 0 });
         await window.electronAPI.clearApiCookie();
       }
     });
@@ -275,47 +319,73 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
     };
   }, []);
 
-  useEffect(() => {
+  const performSearch = async () => {
     if (!searchQuery.trim() || !isAuthenticated || !selectedOrgId) {
-      if (!searchQuery.trim()) {
-        setSearchResults([]);
-        setTotalCount(0);
-      }
       return;
     }
 
-    const searchArtworks = async () => {
-      setIsSearching(true);
-      try {
-        const result = await graphqlRequest<SearchArtworksResult>(
-          SEARCH_ARTWORKS,
-          {
-            orgId: selectedOrgId,
-            searchTerm: searchQuery,
-            limit: 50,
-            offset: 0
-          }
-        );
+    setIsSearching(true);
+    try {
+      const result = await graphqlRequest<SearchArtworksResult>(
+        SEARCH_ARTWORKS,
+        {
+          orgId: selectedOrgId,
+          searchTerm: searchQuery,
+          limit: 50,
+          offset: 0
+        }
+      );
 
-        setSearchResults(result.Organization.get.artworks.items);
-        setTotalCount(result.Organization.get.artworks.count);
-      } catch (error) {
-        console.error('Search error:', error);
-        setSearchResults([]);
-        setTotalCount(0);
-      } finally {
-        setIsSearching(false);
-      }
-    };
+      updateState({
+        searchResults: result.Organization.get.artworks.items,
+        totalCount: result.Organization.get.artworks.count,
+      });
+    } catch (error) {
+      console.error('Search error:', error);
+      updateState({ searchResults: [], totalCount: 0 });
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
-    const timeoutId = setTimeout(searchArtworks, 500);
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, isAuthenticated, selectedOrgId]);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      performSearch();
+    }
+  };
 
-  const handleArtworkClick = (artwork: Artwork) => {
-    // Only show detail view for GENERATIVE artworks with variations
+  const handleArtworkClick = async (artwork: Artwork) => {
+    // For GENERATIVE artworks with variations, show detail view
     if (artwork.type === 'GENERATIVE' && artwork.variations.count > 0) {
       setSelectedArtwork(artwork);
+      return;
+    }
+
+    // For VIDEO artworks, get signed CDN URL and download
+    if (artwork.type === 'VIDEO') {
+      const assetInfo = getAssetDownloadInfo(artwork);
+      if (assetInfo) {
+        try {
+          // Fetch signed CDN URL from GraphQL
+          const cdnResult = await graphqlRequest<GetCdnUrlResult>(
+            GET_CDN_URL,
+            { id: assetInfo.assetId }
+          );
+
+          const signedUrl = cdnResult.Asset?.getCdnUrl;
+          if (!signedUrl) {
+            console.error('No CDN URL returned for asset:', assetInfo.assetId);
+            return;
+          }
+
+          const result = await window.electronAPI.downloadFile(signedUrl, assetInfo.filename);
+          if (result.error && result.error !== 'Cancelled') {
+            console.error('Download failed:', result.error);
+          }
+        } catch (error) {
+          console.error('Failed to get CDN URL:', error);
+        }
+      }
     }
   };
 
@@ -376,9 +446,10 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
         <Input
           type="text"
-          placeholder="Search by title or artist name..."
+          placeholder="Search by title or artist name... (press Enter)"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
           className="w-full pl-10 pr-4 py-6 text-base"
         />
         {isSearching && (
@@ -401,7 +472,9 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
             <div className="grid grid-cols-4 gap-4">
               {searchResults.map((artwork) => {
                 const thumbnailUrl = getThumbnailUrl(artwork);
-                const isClickable = artwork.type === 'GENERATIVE' && artwork.variations.count > 0;
+                const isGenerativeClickable = artwork.type === 'GENERATIVE' && artwork.variations.count > 0;
+                const isVideoClickable = artwork.type === 'VIDEO' && !!getAssetDownloadInfo(artwork);
+                const isClickable = isGenerativeClickable || isVideoClickable;
                 return (
                   <div
                     key={artwork.id}
@@ -426,6 +499,12 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
                           {artwork.variations.count} var{artwork.variations.count !== 1 ? 's' : ''}
                         </div>
                       )}
+                      {/* Show download indicator for VIDEO artworks */}
+                      {artwork.type === 'VIDEO' && isVideoClickable && (
+                        <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          Download
+                        </div>
+                      )}
                     </div>
                     <h3 className="font-medium text-sm truncate">{artwork.title}</h3>
                     <p className="text-xs text-muted-foreground truncate">
@@ -438,11 +517,11 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
           </>
         ) : searchQuery.trim() ? (
           <div className="text-center text-muted-foreground py-8">
-            No artworks found for &quot;{searchQuery}&quot;
+            Press Enter to search for &quot;{searchQuery}&quot;
           </div>
         ) : (
           <div className="text-center text-muted-foreground py-8">
-            Start typing to search for artworks
+            Type a search term and press Enter
           </div>
         )}
       </div>

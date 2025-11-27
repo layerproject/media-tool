@@ -45,6 +45,8 @@ export interface ElectronAPI {
   onRecordingProgress: (callback: (progress: number) => void) => void;
   onRecordingComplete: (callback: (result: { outputPath: string | null; error?: string }) => void) => void;
   removeRecordingListeners: () => void;
+  // File download
+  downloadFile: (url: string, suggestedFilename: string) => Promise<{ success: boolean; path?: string; error?: string; size?: number }>;
 }
 
 export interface PlatformInfo {
@@ -97,6 +99,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('recording:progress');
     ipcRenderer.removeAllListeners('recording:complete');
   },
+  // File download
+  downloadFile: (url: string, suggestedFilename: string): Promise<{ success: boolean; path?: string; error?: string }> =>
+    ipcRenderer.invoke('file:download', url, suggestedFilename),
 } as ElectronAPI);
 
 /**

@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, session } from 'electron';
+import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, session, dialog } from 'electron';
+import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { exec } from 'child_process';
@@ -252,5 +253,86 @@ ipcMain.handle('graphql:request', async (_event: IpcMainInvokeEvent, query: stri
   } catch (error) {
     console.error('GraphQL proxy error:', error);
     throw error;
+  }
+});
+
+/**
+ * Format bytes to human readable string
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/**
+ * Download a file from URL and save to user-selected location
+ * Uses fetch with cookies for authenticated downloads
+ * First makes HEAD request to get file size, then shows save dialog with size info
+ */
+ipcMain.handle('file:download', async (
+  _event: IpcMainInvokeEvent,
+  url: string,
+  suggestedFilename: string
+): Promise<{ success: boolean; path?: string; error?: string; size?: number }> => {
+  try {
+    // First, make HEAD request to get file size
+    let fileSize: number | null = null;
+    try {
+      const headResponse = await fetch(url, { method: 'HEAD' });
+      if (headResponse.ok) {
+        const contentLength = headResponse.headers.get('content-length');
+        if (contentLength) {
+          fileSize = parseInt(contentLength, 10);
+          console.log('File size:', formatFileSize(fileSize));
+        }
+      }
+    } catch (headError) {
+      console.log('HEAD request failed, continuing without size info:', headError);
+    }
+
+    // Show save dialog with file size in title if available
+    const dialogTitle = fileSize
+      ? `Save File (${formatFileSize(fileSize)})`
+      : 'Save File';
+
+    const result = await dialog.showSaveDialog({
+      title: dialogTitle,
+      defaultPath: suggestedFilename,
+      filters: [
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, error: 'Cancelled' };
+    }
+
+    const savePath = result.filePath;
+
+    console.log('Downloading file from:', url);
+
+    // Fetch the file (signed Bunny CDN URL doesn't need cookies)
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      return { success: false, error: `HTTP ${response.status}` };
+    }
+
+    // Get the file content as buffer
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Write to file
+    fs.writeFileSync(savePath, buffer);
+
+    // Play success sound
+    exec('afplay /System/Library/Sounds/Glass.aiff');
+
+    return { success: true, path: savePath, size: buffer.length };
+  } catch (error) {
+    console.error('Download error:', error);
+    return { success: false, error: String(error) };
   }
 });

@@ -566,3 +566,22 @@ export interface GetArtworkVariationsResult {
     };
   };
 }
+
+/**
+ * Get signed CDN URL for downloading an asset
+ * This returns a Bunny CDN signed URL that expires in 1 hour
+ * Requires ADMIN role
+ */
+export const GET_CDN_URL = gql`
+  query GetCdnUrl($id: UUID!) {
+    Asset {
+      getCdnUrl(id: $id)
+    }
+  }
+`;
+
+export interface GetCdnUrlResult {
+  Asset: {
+    getCdnUrl: string;
+  };
+}

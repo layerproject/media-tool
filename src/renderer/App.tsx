@@ -41,6 +41,8 @@ declare global {
       onRecordingProgress: (callback: (progress: number) => void) => void;
       onRecordingComplete: (callback: (result: { outputPath: string | null; error?: string }) => void) => void;
       removeRecordingListeners: () => void;
+      // File download
+      downloadFile: (url: string, suggestedFilename: string) => Promise<{ success: boolean; path?: string; error?: string; size?: number }>;
     };
     platform: {
       isMac: boolean;
@@ -59,9 +61,25 @@ export interface VariationData {
   variationUrl: string;
 }
 
+// Search state to persist across navigation
+export interface SearchState {
+  searchQuery: string;
+  searchResults: unknown[];
+  totalCount: number;
+  selectedArtwork: unknown | null;
+}
+
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<string>('search-artworks');
   const [selectedVariation, setSelectedVariation] = useState<VariationData | null>(null);
+
+  // Persist search state across navigation
+  const [searchState, setSearchState] = useState<SearchState>({
+    searchQuery: '',
+    searchResults: [],
+    totalCount: 0,
+    selectedArtwork: null,
+  });
 
   const handleNavigate = (view: string, data?: VariationData) => {
     setActiveView(view);
@@ -77,6 +95,8 @@ const App: React.FC = () => {
         activeView={activeView}
         onNavigate={handleNavigate}
         selectedVariation={selectedVariation}
+        searchState={searchState}
+        onSearchStateChange={setSearchState}
       />
     </div>
   );

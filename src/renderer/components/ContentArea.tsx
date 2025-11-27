@@ -5,21 +5,29 @@ import ScreenRecord from '@/views/ScreenRecord';
 import VideoTools from '@/views/VideoTools';
 import ImageTools from '@/views/ImageTools';
 import BunnyCDN from '@/views/BunnyCDN';
-import { VariationData } from '@/App';
+import { VariationData, SearchState } from '@/App';
 
 interface ContentAreaProps {
   activeView: string;
   onNavigate?: (view: string, data?: VariationData) => void;
   selectedVariation?: VariationData | null;
+  searchState?: SearchState;
+  onSearchStateChange?: (state: SearchState) => void;
 }
 
-const ContentArea: React.FC<ContentAreaProps> = ({ activeView, onNavigate, selectedVariation }) => {
+const ContentArea: React.FC<ContentAreaProps> = ({ activeView, onNavigate, selectedVariation, searchState, onSearchStateChange }) => {
   const renderContent = () => {
     switch (activeView) {
       case 'sign-in-layer':
         return <SignInToLayer onNavigate={onNavigate} />;
       case 'search-artworks':
-        return <SearchArtworks onNavigate={onNavigate} />;
+        return (
+          <SearchArtworks
+            onNavigate={onNavigate}
+            searchState={searchState}
+            onSearchStateChange={onSearchStateChange}
+          />
+        );
       case 'screen-record':
         return (
           <ScreenRecord
