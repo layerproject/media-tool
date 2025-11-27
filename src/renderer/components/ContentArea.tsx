@@ -1,4 +1,5 @@
 import React from 'react';
+import SignInToLayer from '@/views/SignInToLayer';
 
 interface ContentAreaProps {
   activeView: string;
@@ -7,6 +8,8 @@ interface ContentAreaProps {
 const ContentArea: React.FC<ContentAreaProps> = ({ activeView }) => {
   const renderContent = () => {
     switch (activeView) {
+      case 'sign-in-layer':
+        return <SignInToLayer />;
       case 'search-artworks':
         return (
           <div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Video, Image, MonitorPlay, Cloud } from 'lucide-react';
+import { Search, Video, Image, MonitorPlay, Cloud, LogIn } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 interface MenuItem {
@@ -20,6 +20,12 @@ const menuItems: MenuItem[] = [
   { id: 'image-tools', label: 'Image Tools', icon: <Image className="w-4 h-4" /> },
   { id: 'bunny-cdn', label: 'Bunny CDN', icon: <Cloud className="w-4 h-4" /> },
 ];
+
+const authMenuItem: MenuItem = {
+  id: 'sign-in-layer',
+  label: 'Sign in to Layer',
+  icon: <LogIn className="w-4 h-4" />
+};
 
 const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemClick }) => {
   return (
@@ -53,6 +59,26 @@ const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemClick }) => {
           ))}
         </ul>
       </nav>
+
+      <Separator />
+
+      <div className="p-2">
+        <button
+          onClick={() => onItemClick(authMenuItem.id)}
+          className={`
+            w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm
+            transition-colors duration-150
+            ${
+              activeItem === authMenuItem.id
+                ? 'bg-primary text-primary-foreground font-medium'
+                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+            }
+          `}
+        >
+          {authMenuItem.icon}
+          <span>{authMenuItem.label}</span>
+        </button>
+      </div>
     </div>
   );
 };
