@@ -6,6 +6,16 @@ import { exec } from 'child_process';
 import { authStore } from './store';
 import { startRecording, stopRecording, isRecording, RecordingOptions } from './recorder';
 import { processVideoFile, getVideoFiles, generateThumbnail, cancelProcessing, resetCancellation, wasCancelled } from './video-processor';
+import {
+  captureGenerativeFrames,
+  extractVideoFrames,
+  stopFrameCapture,
+  isCapturing,
+  getVideoInfo,
+  GenerativeFrameCaptureOptions,
+  VideoFrameCaptureOptions,
+  FrameCaptureProgress,
+} from './frame-capturer';
 
 // Load environment variables from .env.local (for development) or .env (for production)
 // In production builds, the .env file should be in the app resources folder
@@ -483,4 +493,56 @@ ipcMain.handle('webAssets:process', async (
  */
 ipcMain.handle('webAssets:cancel', (): void => {
   cancelProcessing();
+});
+
+/**
+ * Frame capture IPC handlers
+ */
+
+// Get video info (fps, duration, dimensions)
+ipcMain.handle('frameCapture:getVideoInfo', async (
+  _event: IpcMainInvokeEvent,
+  videoPath: string
+): Promise<{ fps: number; duration: number; width: number; height: number }> => {
+  return getVideoInfo(videoPath);
+});
+
+// Capture frames from generative artwork (iframe)
+ipcMain.handle('frameCapture:generative', async (
+  _event: IpcMainInvokeEvent,
+  options: GenerativeFrameCaptureOptions
+): Promise<void> => {
+  await captureGenerativeFrames(options, (progress: FrameCaptureProgress) => {
+    mainWindow?.webContents.send('frameCapture:progress', progress);
+  });
+
+  // Play success sound on completion
+  if (!isCapturing()) {
+    exec('afplay /System/Library/Sounds/Glass.aiff');
+  }
+});
+
+// Extract frames from video file
+ipcMain.handle('frameCapture:video', async (
+  _event: IpcMainInvokeEvent,
+  options: VideoFrameCaptureOptions
+): Promise<void> => {
+  await extractVideoFrames(options, (progress: FrameCaptureProgress) => {
+    mainWindow?.webContents.send('frameCapture:progress', progress);
+  });
+
+  // Play success sound on completion
+  if (!isCapturing()) {
+    exec('afplay /System/Library/Sounds/Glass.aiff');
+  }
+});
+
+// Stop frame capture
+ipcMain.handle('frameCapture:stop', (): void => {
+  stopFrameCapture();
+});
+
+// Check if capture is in progress
+ipcMain.handle('frameCapture:isCapturing', (): boolean => {
+  return isCapturing();
 });

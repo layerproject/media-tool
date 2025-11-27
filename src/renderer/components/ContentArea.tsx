@@ -3,7 +3,7 @@ import SignInToLayer from '@/views/SignInToLayer';
 import SearchArtworks from '@/views/SearchArtworks';
 import ScreenRecord from '@/views/ScreenRecord';
 import VideoTools from '@/views/VideoTools';
-import ImageTools from '@/views/ImageTools';
+import FramesCapture from '@/views/FramesCapture';
 import BunnyCDN from '@/views/BunnyCDN';
 import { VariationData, SearchState } from '@/App';
 
@@ -40,8 +40,16 @@ const ContentArea: React.FC<ContentAreaProps> = ({ activeView, onNavigate, selec
         );
       case 'video-tools':
         return <VideoTools />;
-      case 'image-tools':
-        return <ImageTools />;
+      case 'frames-capture':
+        return (
+          <FramesCapture
+            artistName={selectedVariation?.artistName}
+            artworkTitle={selectedVariation?.artworkTitle}
+            variationId={selectedVariation?.variationId}
+            variationNumbering={selectedVariation?.variationNumbering}
+            variationUrl={selectedVariation?.variationUrl}
+          />
+        );
       case 'bunny-cdn':
         return <BunnyCDN />;
       default:

@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { supabase } from '@/lib/supabase';
-import { LogIn, Search, Image as ImageIcon, ArrowLeft } from 'lucide-react';
+import { LogIn, Search, Image as ImageIcon, ArrowLeft, Download, Copy, Video, Camera } from 'lucide-react';
 import { graphqlRequest, setAuthToken } from '@/lib/graphql';
 import {
   SEARCH_ARTWORKS,
@@ -19,15 +25,13 @@ import {
   GetCdnUrlResult
 } from '@/lib/queries';
 import { VariationData, SearchState } from '@/App';
+import { API_URL, DEFAULT_ORG_ID } from '@/lib/constants';
 
 interface SearchArtworksProps {
   onNavigate?: (view: string, data?: VariationData) => void;
   searchState?: SearchState;
   onSearchStateChange?: (state: SearchState) => void;
 }
-
-// API URL for thumbnail requests (generative artworks)
-const API_URL = 'http://localhost:3000';
 
 /**
  * Get thumbnail URL from artwork
@@ -87,6 +91,34 @@ function getAssetDownloadInfo(artwork: Artwork): { assetId: string; filename: st
   const filename = `${safeArtist}_${safeTitle}.mp4`;
 
   return { assetId: asset.id, filename };
+}
+
+/**
+ * Get curation URL for an artwork (used for linking to the artwork in Layer)
+ */
+function getArtworkCurationUrl(artwork: Artwork): string {
+  const artworkType = artwork.type.toLowerCase();
+  return `${API_URL}/orgs/${DEFAULT_ORG_ID}/curation/${artworkType}/${artwork.artwork_id}`;
+}
+
+/**
+ * Get embed URL for a variation (used in iframes)
+ */
+function getVariationEmbedUrl(variation: Variation): string {
+  return variation.url || '';
+}
+
+/**
+ * Copy text to clipboard
+ */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    console.error('Failed to copy to clipboard:', error);
+    return false;
+  }
 }
 
 /**
@@ -183,36 +215,63 @@ const ArtworkDetail: React.FC<ArtworkDetailProps> = ({ artwork, onBack, onNaviga
           ) : variations.length > 0 ? (
             <div className="grid grid-cols-4 gap-4">
               {variations.map((variation) => (
-                <div
-                  key={variation.id}
-                  className="group cursor-pointer"
-                  onClick={() => handleVariationClick(variation)}
-                >
-                  <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2 relative">
-                    <img
-                      src={getVariationThumbnailUrl(variation.id)}
-                      alt={`Variation #${variation.numbering}`}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                      onError={(e) => {
-                        // Hide broken images
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                    {/* Variation number badge */}
-                    <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                      #{variation.numbering}
-                    </div>
-                    {/* Featured badge */}
-                    {variation.featured && (
-                      <div className="absolute top-2 right-2 bg-yellow-500 text-black text-xs px-2 py-1 rounded font-medium">
-                        Featured
+                <ContextMenu key={variation.id}>
+                  <ContextMenuTrigger asChild>
+                    <div
+                      className="group cursor-pointer"
+                      onClick={() => handleVariationClick(variation)}
+                    >
+                      <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2 relative">
+                        <img
+                          src={getVariationThumbnailUrl(variation.id)}
+                          alt={`Variation #${variation.numbering}`}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          onError={(e) => {
+                            // Hide broken images
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                        {/* Variation number badge */}
+                        <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          #{variation.numbering}
+                        </div>
+                        {/* Featured badge */}
+                        {variation.featured && (
+                          <div className="absolute top-2 right-2 bg-yellow-500 text-black text-xs px-2 py-1 rounded font-medium">
+                            Featured
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">
-                    by {variation.creator.name || variation.creator.username || 'Unknown'}
-                  </p>
-                </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        by {variation.creator.name || variation.creator.username || 'Unknown'}
+                      </p>
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => handleVariationClick(variation)}>
+                      <Video className="w-4 h-4 mr-2" />
+                      Capture Video
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => {
+                      if (onNavigate && variation.url) {
+                        onNavigate('frames-capture', {
+                          artistName: artwork.artist.name || artwork.artist.username || 'Unknown',
+                          artworkTitle: artwork.title,
+                          variationId: variation.id,
+                          variationNumbering: variation.numbering,
+                          variationUrl: variation.url
+                        });
+                      }
+                    }}>
+                      <Camera className="w-4 h-4 mr-2" />
+                      Capture Frames
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => copyToClipboard(getVariationEmbedUrl(variation))}>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Embed Link
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               ))}
             </div>
           ) : (
@@ -253,8 +312,6 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
 
   const setSearchQuery = (query: string) => updateState({ searchQuery: query });
   const setSelectedArtwork = (artwork: Artwork | null) => updateState({ selectedArtwork: artwork });
-
-  const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000000';
 
   const fetchUserOrganizations = async () => {
     setIsLoadingOrgs(true);
@@ -476,41 +533,56 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
                 const isVideoClickable = artwork.type === 'VIDEO' && !!getAssetDownloadInfo(artwork);
                 const isClickable = isGenerativeClickable || isVideoClickable;
                 return (
-                  <div
-                    key={artwork.id}
-                    className={`group ${isClickable ? 'cursor-pointer' : ''}`}
-                    onClick={() => handleArtworkClick(artwork)}
-                  >
-                    <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2 relative">
-                      {thumbnailUrl ? (
-                        <img
-                          src={thumbnailUrl}
-                          alt={artwork.title}
-                          className={`w-full h-full object-cover ${isClickable ? 'group-hover:scale-105' : ''} transition-transform duration-200`}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-muted">
-                          <ImageIcon className="w-12 h-12 text-muted-foreground/50" />
+                  <ContextMenu key={artwork.id}>
+                    <ContextMenuTrigger asChild>
+                      <div
+                        className={`group ${isClickable ? 'cursor-pointer' : ''}`}
+                        onClick={() => handleArtworkClick(artwork)}
+                      >
+                        <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2 relative">
+                          {thumbnailUrl ? (
+                            <img
+                              src={thumbnailUrl}
+                              alt={artwork.title}
+                              className={`w-full h-full object-cover ${isClickable ? 'group-hover:scale-105' : ''} transition-transform duration-200`}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-muted">
+                              <ImageIcon className="w-12 h-12 text-muted-foreground/50" />
+                            </div>
+                          )}
+                          {/* Show variation count badge for generative artworks */}
+                          {artwork.type === 'GENERATIVE' && artwork.variations.count > 0 && (
+                            <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                              {artwork.variations.count} var{artwork.variations.count !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                          {/* Show download indicator for VIDEO artworks */}
+                          {artwork.type === 'VIDEO' && isVideoClickable && (
+                            <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                              Download
+                            </div>
+                          )}
                         </div>
+                        <h3 className="font-medium text-sm truncate">{artwork.title}</h3>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {artwork.artist.name || artwork.artist.username || 'Unknown Artist'}
+                        </p>
+                      </div>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuItem onClick={() => copyToClipboard(getArtworkCurationUrl(artwork))}>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy Link
+                      </ContextMenuItem>
+                      {isVideoClickable && (
+                        <ContextMenuItem onClick={() => handleArtworkClick(artwork)}>
+                          <Download className="w-4 h-4 mr-2" />
+                          Download Video
+                        </ContextMenuItem>
                       )}
-                      {/* Show variation count badge for generative artworks */}
-                      {artwork.type === 'GENERATIVE' && artwork.variations.count > 0 && (
-                        <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                          {artwork.variations.count} var{artwork.variations.count !== 1 ? 's' : ''}
-                        </div>
-                      )}
-                      {/* Show download indicator for VIDEO artworks */}
-                      {artwork.type === 'VIDEO' && isVideoClickable && (
-                        <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                          Download
-                        </div>
-                      )}
-                    </div>
-                    <h3 className="font-medium text-sm truncate">{artwork.title}</h3>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {artwork.artist.name || artwork.artist.username || 'Unknown Artist'}
-                    </p>
-                  </div>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 );
               })}
             </div>

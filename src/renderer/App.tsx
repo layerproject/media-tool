@@ -61,6 +61,34 @@ declare global {
         error?: string;
       }) => void) => void;
       removeWebAssetsListeners: () => void;
+      // Frame capture
+      getVideoInfo: (videoPath: string) => Promise<{ fps: number; duration: number; width: number; height: number }>;
+      captureGenerativeFrames: (options: {
+        url: string;
+        fps: number;
+        totalFrames: number;
+        resolution: '2k' | '4k' | '8k';
+        imageFormat: 'jpeg' | 'png';
+        outputDir: string;
+        folderName: string;
+      }) => Promise<void>;
+      captureVideoFrames: (options: {
+        videoPath: string;
+        fps: number;
+        imageFormat: 'jpeg' | 'png';
+        outputDir: string;
+        folderName: string;
+      }) => Promise<void>;
+      stopFrameCapture: () => Promise<void>;
+      isCapturing: () => Promise<boolean>;
+      onFrameCaptureProgress: (callback: (progress: {
+        currentFrame: number;
+        totalFrames: number;
+        status: 'capturing' | 'completed' | 'error' | 'cancelled';
+        error?: string;
+        outputFolder?: string;
+      }) => void) => void;
+      removeFrameCaptureListeners: () => void;
     };
     platform: {
       isMac: boolean;

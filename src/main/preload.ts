@@ -34,6 +34,43 @@ export interface WebAssetsProgressUpdate {
   error?: string;
 }
 
+// Frame capture types
+export type ImageFormat = 'jpeg' | 'png';
+export type CaptureResolution = '2k' | '4k' | '8k';
+
+export interface GenerativeFrameCaptureOptions {
+  url: string;
+  fps: number;
+  totalFrames: number;
+  resolution: CaptureResolution;
+  imageFormat: ImageFormat;
+  outputDir: string;
+  folderName: string;
+}
+
+export interface VideoFrameCaptureOptions {
+  videoPath: string;
+  fps: number;
+  imageFormat: ImageFormat;
+  outputDir: string;
+  folderName: string;
+}
+
+export interface FrameCaptureProgress {
+  currentFrame: number;
+  totalFrames: number;
+  status: 'capturing' | 'completed' | 'error' | 'cancelled';
+  error?: string;
+  outputFolder?: string;
+}
+
+export interface VideoInfo {
+  fps: number;
+  duration: number;
+  width: number;
+  height: number;
+}
+
 // Define the API shape for type safety
 export interface ElectronAPI {
   getVersion: () => Promise<string>;
@@ -68,6 +105,14 @@ export interface ElectronAPI {
   cancelWebAssets: () => Promise<void>;
   onWebAssetsProgress: (callback: (update: WebAssetsProgressUpdate) => void) => void;
   removeWebAssetsListeners: () => void;
+  // Frame capture
+  getVideoInfo: (videoPath: string) => Promise<VideoInfo>;
+  captureGenerativeFrames: (options: GenerativeFrameCaptureOptions) => Promise<void>;
+  captureVideoFrames: (options: VideoFrameCaptureOptions) => Promise<void>;
+  stopFrameCapture: () => Promise<void>;
+  isCapturing: () => Promise<boolean>;
+  onFrameCaptureProgress: (callback: (progress: FrameCaptureProgress) => void) => void;
+  removeFrameCaptureListeners: () => void;
 }
 
 export interface PlatformInfo {
@@ -140,6 +185,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeWebAssetsListeners: (): void => {
     ipcRenderer.removeAllListeners('webAssets:progress');
+  },
+  // Frame capture
+  getVideoInfo: (videoPath: string): Promise<VideoInfo> =>
+    ipcRenderer.invoke('frameCapture:getVideoInfo', videoPath),
+  captureGenerativeFrames: (options: GenerativeFrameCaptureOptions): Promise<void> =>
+    ipcRenderer.invoke('frameCapture:generative', options),
+  captureVideoFrames: (options: VideoFrameCaptureOptions): Promise<void> =>
+    ipcRenderer.invoke('frameCapture:video', options),
+  stopFrameCapture: (): Promise<void> =>
+    ipcRenderer.invoke('frameCapture:stop'),
+  isCapturing: (): Promise<boolean> =>
+    ipcRenderer.invoke('frameCapture:isCapturing'),
+  onFrameCaptureProgress: (callback: (progress: FrameCaptureProgress) => void): void => {
+    ipcRenderer.on('frameCapture:progress', (_event, progress) => callback(progress));
+  },
+  removeFrameCaptureListeners: (): void => {
+    ipcRenderer.removeAllListeners('frameCapture:progress');
   },
 } as ElectronAPI);
 
