@@ -1,0 +1,102 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+out/
+*.app
+*.dmg
+*.pkg
+*.exe
+*.msi
+*.deb
+*.rpm
+*.AppImage
+*.snap
+
+# Development
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+*.code-workspace
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Desktop.ini
+$RECYCLE.BIN/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+
+# SASS compiled CSS
+src/renderer/styles/css/
+
+# TypeScript compiled JavaScript
+dist/
+*.d.ts
+*.d.ts.map
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# Production
+*.production.js
+
+# Electron
+electron-builder.yml
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Package lock files (keeping package-lock.json for consistency)
+# Uncomment to ignore:
+# package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# macOS
+Icon
+.Spotlight-V100
+.Trashes
+
+# Windows
+ehthumbs.db
+ehthumbs_vista.db
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
