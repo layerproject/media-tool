@@ -22,6 +22,18 @@ export interface RecordingOptions {
   variationNumbering: number;
 }
 
+// Web assets progress update type
+export interface WebAssetsProgressUpdate {
+  filePath: string;
+  format?: string;
+  codec?: string;
+  progress: number;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  jobStatus?: 'pending' | 'processing' | 'completed' | 'error';
+  thumbnailDataUrl?: string;
+  error?: string;
+}
+
 // Define the API shape for type safety
 export interface ElectronAPI {
   getVersion: () => Promise<string>;
@@ -47,6 +59,15 @@ export interface ElectronAPI {
   removeRecordingListeners: () => void;
   // File download
   downloadFile: (url: string, suggestedFilename: string) => Promise<{ success: boolean; path?: string; error?: string; size?: number }>;
+  // Video file selection
+  selectVideoFiles: () => Promise<{ filePaths: string[] }>;
+  selectVideoFolder: () => Promise<{ filePaths: string[] }>;
+  selectDestinationFolder: () => Promise<{ filePath: string | null }>;
+  // Web assets processing
+  processWebAssets: (filePaths: string[], outputDir: string) => Promise<void>;
+  cancelWebAssets: () => Promise<void>;
+  onWebAssetsProgress: (callback: (update: WebAssetsProgressUpdate) => void) => void;
+  removeWebAssetsListeners: () => void;
 }
 
 export interface PlatformInfo {
@@ -102,6 +123,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // File download
   downloadFile: (url: string, suggestedFilename: string): Promise<{ success: boolean; path?: string; error?: string }> =>
     ipcRenderer.invoke('file:download', url, suggestedFilename),
+  // Video file selection
+  selectVideoFiles: (): Promise<{ filePaths: string[] }> =>
+    ipcRenderer.invoke('dialog:selectVideoFiles'),
+  selectVideoFolder: (): Promise<{ filePaths: string[] }> =>
+    ipcRenderer.invoke('dialog:selectVideoFolder'),
+  selectDestinationFolder: (): Promise<{ filePath: string | null }> =>
+    ipcRenderer.invoke('dialog:selectDestinationFolder'),
+  // Web assets processing
+  processWebAssets: (filePaths: string[], outputDir: string): Promise<void> =>
+    ipcRenderer.invoke('webAssets:process', filePaths, outputDir),
+  cancelWebAssets: (): Promise<void> =>
+    ipcRenderer.invoke('webAssets:cancel'),
+  onWebAssetsProgress: (callback: (update: WebAssetsProgressUpdate) => void): void => {
+    ipcRenderer.on('webAssets:progress', (_event, update) => callback(update));
+  },
+  removeWebAssetsListeners: (): void => {
+    ipcRenderer.removeAllListeners('webAssets:progress');
+  },
 } as ElectronAPI);
 
 /**

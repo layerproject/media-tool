@@ -33,8 +33,11 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "@fontsource/inter": "^5.0.16",
     "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.0.2",
     "@supabase/supabase-js": "^2.86.0",

@@ -160,7 +160,7 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
           {/* Duration dropdown */}
           <Select
             value={duration}
-            onValueChange={(val) => handleDurationChange(val as Duration)}
+            onValueChange={(val: string) => handleDurationChange(val as Duration)}
             disabled={isRecording}
           >
             <SelectTrigger className="w-[100px]">
@@ -176,7 +176,7 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
           {/* Resolution dropdown */}
           <Select
             value={resolution}
-            onValueChange={(val) => handleResolutionChange(val as Resolution)}
+            onValueChange={(val: string) => handleResolutionChange(val as Resolution)}
             disabled={isRecording}
           >
             <SelectTrigger className="w-[80px]">
@@ -191,7 +191,7 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
           {/* Format dropdown */}
           <Select
             value={format}
-            onValueChange={(val) => handleFormatChange(val as Format)}
+            onValueChange={(val: string) => handleFormatChange(val as Format)}
             disabled={isRecording}
           >
             <SelectTrigger className="w-[110px]">

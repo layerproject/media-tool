@@ -5,6 +5,7 @@ import * as dotenv from 'dotenv';
 import { exec } from 'child_process';
 import { authStore } from './store';
 import { startRecording, stopRecording, isRecording, RecordingOptions } from './recorder';
+import { processVideoFile, getVideoFiles, generateThumbnail, cancelProcessing, resetCancellation, wasCancelled } from './video-processor';
 
 // Load environment variables from .env.local (for development) or .env (for production)
 // In production builds, the .env file should be in the app resources folder
@@ -335,4 +336,151 @@ ipcMain.handle('file:download', async (
     console.error('Download error:', error);
     return { success: false, error: String(error) };
   }
+});
+
+/**
+ * Video file selection dialogs
+ */
+ipcMain.handle('dialog:selectVideoFiles', async (): Promise<{ filePaths: string[] }> => {
+  const result = await dialog.showOpenDialog({
+    title: 'Select Video Files',
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: 'Video Files', extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v'] },
+    ],
+  });
+
+  return { filePaths: result.filePaths };
+});
+
+ipcMain.handle('dialog:selectVideoFolder', async (): Promise<{ filePaths: string[] }> => {
+  const result = await dialog.showOpenDialog({
+    title: 'Select Folder with Videos',
+    properties: ['openDirectory'],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { filePaths: [] };
+  }
+
+  // Get all video files from the selected folder
+  const videoFiles = await getVideoFiles(result.filePaths[0]);
+  return { filePaths: videoFiles };
+});
+
+ipcMain.handle('dialog:selectDestinationFolder', async (): Promise<{ filePath: string | null }> => {
+  const result = await dialog.showOpenDialog({
+    title: 'Select Destination Folder',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { filePath: null };
+  }
+
+  return { filePath: result.filePaths[0] };
+});
+
+/**
+ * Web assets processing
+ */
+ipcMain.handle('webAssets:process', async (
+  _event: IpcMainInvokeEvent,
+  filePaths: string[],
+  outputDir: string
+): Promise<void> => {
+  const os = require('os');
+  const tempDir = os.tmpdir();
+
+  // Reset cancellation state before starting
+  resetCancellation();
+
+  for (const filePath of filePaths) {
+    // Check if cancelled before processing each file
+    if (wasCancelled()) {
+      break;
+    }
+
+    // Generate a preview thumbnail first for the UI
+    const previewThumbnailPath = path.join(tempDir, `preview_${Date.now()}.jpg`);
+    try {
+      await generateThumbnail(filePath, previewThumbnailPath, 160, 160);
+      // Read thumbnail and convert to data URL
+      const thumbnailBuffer = fs.readFileSync(previewThumbnailPath);
+      const thumbnailDataUrl = `data:image/jpeg;base64,${thumbnailBuffer.toString('base64')}`;
+
+      // Send thumbnail to renderer
+      mainWindow?.webContents.send('webAssets:progress', {
+        filePath,
+        thumbnailDataUrl,
+        jobStatus: 'processing',
+        progress: 0,
+        status: 'processing',
+      });
+
+      // Clean up temp thumbnail
+      fs.unlinkSync(previewThumbnailPath);
+    } catch (error) {
+      console.error('Failed to generate preview thumbnail:', error);
+      mainWindow?.webContents.send('webAssets:progress', {
+        filePath,
+        jobStatus: 'processing',
+        progress: 0,
+        status: 'processing',
+      });
+    }
+
+    // Check if cancelled before starting video processing
+    if (wasCancelled()) {
+      break;
+    }
+
+    // Process the video file
+    try {
+      await processVideoFile(filePath, outputDir, (update) => {
+        mainWindow?.webContents.send('webAssets:progress', {
+          filePath,
+          format: update.format,
+          codec: update.codec,
+          progress: update.progress,
+          status: update.status,
+        });
+      });
+
+      // Mark job as completed (only if not cancelled)
+      if (!wasCancelled()) {
+        mainWindow?.webContents.send('webAssets:progress', {
+          filePath,
+          jobStatus: 'completed',
+          progress: 100,
+          status: 'completed',
+        });
+      }
+    } catch (error) {
+      // Don't report cancelled as error
+      if (wasCancelled()) {
+        break;
+      }
+      console.error('Video processing error:', error);
+      mainWindow?.webContents.send('webAssets:progress', {
+        filePath,
+        jobStatus: 'error',
+        progress: 0,
+        status: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  // Play success sound when all done (only if not cancelled)
+  if (!wasCancelled()) {
+    exec('afplay /System/Library/Sounds/Glass.aiff');
+  }
+});
+
+/**
+ * Cancel web assets processing
+ */
+ipcMain.handle('webAssets:cancel', (): void => {
+  cancelProcessing();
 });

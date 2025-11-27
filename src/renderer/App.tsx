@@ -43,6 +43,24 @@ declare global {
       removeRecordingListeners: () => void;
       // File download
       downloadFile: (url: string, suggestedFilename: string) => Promise<{ success: boolean; path?: string; error?: string; size?: number }>;
+      // Video file selection
+      selectVideoFiles: () => Promise<{ filePaths: string[] }>;
+      selectVideoFolder: () => Promise<{ filePaths: string[] }>;
+      selectDestinationFolder: () => Promise<{ filePath: string | null }>;
+      // Web assets processing
+      processWebAssets: (filePaths: string[], outputDir: string) => Promise<void>;
+      cancelWebAssets: () => Promise<void>;
+      onWebAssetsProgress: (callback: (update: {
+        filePath: string;
+        format?: string;
+        codec?: string;
+        progress: number;
+        status: 'pending' | 'processing' | 'completed' | 'error';
+        jobStatus?: 'pending' | 'processing' | 'completed' | 'error';
+        thumbnailDataUrl?: string;
+        error?: string;
+      }) => void) => void;
+      removeWebAssetsListeners: () => void;
     };
     platform: {
       isMac: boolean;
