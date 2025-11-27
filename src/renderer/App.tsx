@@ -8,6 +8,7 @@ export interface RecordingOptions {
   duration: number;
   format: 'prores' | 'mp4';
   resolution: '2k' | '4k';
+  artistName: string;
   artworkTitle: string;
   variationNumbering: number;
 }
@@ -51,6 +52,7 @@ declare global {
 
 // Variation data for screen recording
 export interface VariationData {
+  artistName: string;
   artworkTitle: string;
   variationId: string;
   variationNumbering: number;

@@ -10,6 +10,7 @@ import {
 import { RefreshCw, Square } from 'lucide-react';
 
 export interface ScreenRecordProps {
+  artistName?: string;
   artworkTitle?: string;
   variationId?: string;
   variationNumbering?: number;
@@ -20,7 +21,26 @@ type Duration = '5' | '30' | '60';
 type Resolution = '2k' | '4k';
 type Format = 'prores' | 'mp4';
 
+// Estimated temp file sizes per frame (JPEG at quality 95)
+const FRAME_SIZES = {
+  '2k': 150,  // ~150KB per frame at 1080x1080
+  '4k': 500,  // ~500KB per frame at 2160x2160
+};
+
+// Get estimated disk space needed for recording
+const getEstimatedDiskSpace = (resolution: Resolution, durationSec: number): string => {
+  const framesPerSecond = 30;
+  const totalFrames = durationSec * framesPerSecond;
+  const totalKB = totalFrames * FRAME_SIZES[resolution];
+
+  if (totalKB >= 1024 * 1024) {
+    return `~${(totalKB / (1024 * 1024)).toFixed(1)} GB`;
+  }
+  return `~${Math.round(totalKB / 1024)} MB`;
+};
+
 const ScreenRecord: React.FC<ScreenRecordProps> = ({
+  artistName,
   artworkTitle,
   variationNumbering,
   variationUrl
@@ -35,11 +55,29 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
   const [resolution, setResolution] = useState<Resolution>('2k');
   const [format, setFormat] = useState<Format>('mp4');
 
+  // Clear status when any recording option changes
+  const handleDurationChange = (val: Duration) => {
+    setDuration(val);
+    setStatus('');
+  };
+  const handleResolutionChange = (val: Resolution) => {
+    setResolution(val);
+    setStatus('');
+  };
+  const handleFormatChange = (val: Format) => {
+    setFormat(val);
+    setStatus('');
+  };
+
   // Set up recording event listeners
   useEffect(() => {
     window.electronAPI.onRecordingProgress((prog) => {
       setProgress(prog);
-      setStatus(`Capturing frames... ${Math.round(prog)}%`);
+      if (prog >= 100) {
+        setStatus('Encoding...');
+      } else {
+        setStatus(`Capturing frames... ${Math.round(prog)}%`);
+      }
     });
 
     window.electronAPI.onRecordingComplete((result) => {
@@ -60,7 +98,7 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
   }, []);
 
   const handleRecord = async () => {
-    if (!variationUrl || !artworkTitle || variationNumbering === undefined) {
+    if (!variationUrl || !artistName || !artworkTitle || variationNumbering === undefined) {
       return;
     }
 
@@ -74,6 +112,7 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
         duration: parseInt(duration, 10),
         format,
         resolution,
+        artistName,
         artworkTitle,
         variationNumbering,
       });
@@ -116,7 +155,7 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
           {/* Duration dropdown */}
           <Select
             value={duration}
-            onValueChange={(val) => setDuration(val as Duration)}
+            onValueChange={(val) => handleDurationChange(val as Duration)}
             disabled={isRecording}
           >
             <SelectTrigger className="w-[100px]">
@@ -132,7 +171,7 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
           {/* Resolution dropdown */}
           <Select
             value={resolution}
-            onValueChange={(val) => setResolution(val as Resolution)}
+            onValueChange={(val) => handleResolutionChange(val as Resolution)}
             disabled={isRecording}
           >
             <SelectTrigger className="w-[80px]">
@@ -147,7 +186,7 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
           {/* Format dropdown */}
           <Select
             value={format}
-            onValueChange={(val) => setFormat(val as Format)}
+            onValueChange={(val) => handleFormatChange(val as Format)}
             disabled={isRecording}
           >
             <SelectTrigger className="w-[110px]">
@@ -180,6 +219,20 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
           )}
         </div>
       </div>
+
+      {/* Recording info (shown when not recording) */}
+      {!isRecording && !status && (
+        <div className="mb-4 p-3 rounded-md bg-amber-500/10 border border-amber-500/20 text-sm space-y-1">
+          <p className="text-amber-600 dark:text-amber-400">
+            Temp disk space needed: {getEstimatedDiskSpace(resolution, parseInt(duration, 10))}
+          </p>
+          {resolution === '4k' && (
+            <p className="text-amber-600 dark:text-amber-400">
+              4K recordings take longer to capture and encode.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Progress bar (shown during recording) */}
       {isRecording && (

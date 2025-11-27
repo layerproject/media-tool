@@ -23,6 +23,7 @@ const ContentArea: React.FC<ContentAreaProps> = ({ activeView, onNavigate, selec
       case 'screen-record':
         return (
           <ScreenRecord
+            artistName={selectedVariation?.artistName}
             artworkTitle={selectedVariation?.artworkTitle}
             variationId={selectedVariation?.variationId}
             variationNumbering={selectedVariation?.variationNumbering}

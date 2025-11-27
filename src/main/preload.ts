@@ -17,6 +17,7 @@ export interface RecordingOptions {
   duration: number;
   format: 'prores' | 'mp4';
   resolution: '2k' | '4k';
+  artistName: string;
   artworkTitle: string;
   variationNumbering: number;
 }

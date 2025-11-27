@@ -100,6 +100,7 @@ const ArtworkDetail: React.FC<ArtworkDetailProps> = ({ artwork, onBack, onNaviga
   const handleVariationClick = (variation: Variation) => {
     if (onNavigate && variation.url) {
       onNavigate('screen-record', {
+        artistName: artwork.artist.name || artwork.artist.username || 'Unknown',
         artworkTitle: artwork.title,
         variationId: variation.id,
         variationNumbering: variation.numbering,

@@ -12,8 +12,25 @@ export interface RecordingOptions {
   duration: number; // seconds
   format: 'prores' | 'mp4';
   resolution: '2k' | '4k';
+  artistName: string;
   artworkTitle: string;
   variationNumbering: number;
+}
+
+/**
+ * Sanitize a string for use in filenames
+ * - Lowercase
+ * - Replace spaces and hyphens with underscores
+ * - Remove special characters except underscores
+ * - Collapse multiple underscores into one
+ */
+function sanitizeForFilename(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')      // Replace spaces and hyphens with underscore
+    .replace(/[^a-z0-9_]/g, '')   // Remove special characters except underscores
+    .replace(/_+/g, '_')          // Collapse multiple underscores
+    .replace(/^_|_$/g, '');       // Remove leading/trailing underscores
 }
 
 interface RecordingState {
@@ -50,6 +67,13 @@ const RESOLUTIONS = {
 
 // Target frame rate
 const FRAME_RATE = 30;
+
+// Resolution-specific frame intervals (ms) to compensate for timing differences
+// 2K is the baseline (33.33ms = 1000/30)
+const FRAME_INTERVALS = {
+  '2k': 1000 / 30,  // 33.33ms - baseline
+  '4k': 100,        // slightly adjusted for 4K
+};
 
 /**
  * Helper to write file with promise and explicit buffer release
@@ -94,7 +118,10 @@ export async function startRecording(
 
   // Prompt user for save location FIRST (before starting capture)
   const extension = format === 'prores' ? 'mov' : 'mp4';
-  const defaultName = `${options.artworkTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${options.variationNumbering}.${extension}`;
+  // Format: [artist_name]_[artwork_title]_v[number]_[seconds]s_[resolution]
+  const artistPart = sanitizeForFilename(options.artistName);
+  const titlePart = sanitizeForFilename(options.artworkTitle);
+  const defaultName = `${artistPart}_${titlePart}_v${options.variationNumbering}_${duration}s_${resolution}.${extension}`;
 
   const result = await dialog.showSaveDialog({
     title: 'Save Recording',
@@ -152,12 +179,16 @@ export async function startRecording(
 
   // Inject frame-rate control script to pause animation between captures
   // This ensures consistent timing regardless of capture speed
+  const frameInterval = FRAME_INTERVALS[resolution];
   await state.offscreenWindow.webContents.executeJavaScript(`
     (function() {
       // Store original requestAnimationFrame
       window.__originalRAF = window.requestAnimationFrame;
       window.__rafCallbacks = [];
       window.__rafPaused = true;
+      // Simulated time tracking - starts at current time, advances by resolution-specific interval
+      window.__simulatedTime = performance.now();
+      window.__frameInterval = ${frameInterval}; // Resolution-specific: ${resolution}
 
       // Override requestAnimationFrame to queue callbacks when paused
       window.requestAnimationFrame = function(callback) {
@@ -168,17 +199,19 @@ export async function startRecording(
         return window.__originalRAF(callback);
       };
 
-      // Function to advance one frame
+      // Function to advance one frame with precise time simulation
       window.__advanceFrame = function() {
         const callbacks = window.__rafCallbacks.slice();
         window.__rafCallbacks = [];
-        const now = performance.now();
+        // Advance simulated time by exactly one frame interval
+        window.__simulatedTime += window.__frameInterval;
+        const timestamp = window.__simulatedTime;
         callbacks.forEach(cb => {
-          try { cb(now); } catch(e) {}
+          try { cb(timestamp); } catch(e) {}
         });
       };
 
-      console.log('🎬 Frame control injected');
+      console.log('🎬 Frame control injected with interval: ${frameInterval.toFixed(2)}ms');
     })();
   `);
 
