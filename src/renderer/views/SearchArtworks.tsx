@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
-import { LogIn, Search, Image as ImageIcon } from 'lucide-react';
+import { LogIn, Search, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 import { graphqlRequest, setAuthToken } from '@/lib/graphql';
 import {
   SEARCH_ARTWORKS,
@@ -11,7 +11,10 @@ import {
   GetUserProfileResult,
   UserOrganization,
   Artwork,
-  AssetMediaVariant
+  AssetMediaVariant,
+  GET_ARTWORK_VARIATIONS,
+  GetArtworkVariationsResult,
+  Variation
 } from '@/lib/queries';
 
 interface SearchArtworksProps {
@@ -51,6 +54,146 @@ function getThumbnailUrl(artwork: Artwork): string | null {
   return thumbnailVariant?.url || null;
 }
 
+/**
+ * Get thumbnail URL for a variation
+ */
+function getVariationThumbnailUrl(variationId: string): string {
+  return `${API_URL}/api/thumbnail/variation/${variationId}/thumbnail.jpg`;
+}
+
+/**
+ * Artwork Detail View - shows variations for generative artworks
+ */
+interface ArtworkDetailProps {
+  artwork: Artwork;
+  onBack: () => void;
+}
+
+const ArtworkDetail: React.FC<ArtworkDetailProps> = ({ artwork, onBack }) => {
+  const [variations, setVariations] = useState<Variation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [variationCount, setVariationCount] = useState(0);
+
+  useEffect(() => {
+    const fetchVariations = async () => {
+      setIsLoading(true);
+      try {
+        const result = await graphqlRequest<GetArtworkVariationsResult>(
+          GET_ARTWORK_VARIATIONS,
+          { artworkId: artwork.artwork_id }
+        );
+        setVariations(result.Variation.find.items);
+        setVariationCount(result.Variation.find.count);
+      } catch (error) {
+        console.error('Error fetching variations:', error);
+        setVariations([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchVariations();
+  }, [artwork.artwork_id]);
+
+  const handleVariationClick = (variation: Variation) => {
+    console.log('Variation clicked:', {
+      id: variation.id,
+      numbering: variation.numbering,
+      url: variation.url,
+      featured: variation.featured
+    });
+  };
+
+  const thumbnailUrl = getThumbnailUrl(artwork);
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header with back button */}
+      <div className="flex items-center gap-3 mb-4">
+        <Button variant="ghost" size="sm" onClick={onBack}>
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Back
+        </Button>
+      </div>
+
+      {/* Main content: 20% / 80% split */}
+      <div className="flex-1 flex gap-6 min-h-0">
+        {/* Left column: Artwork info (20%) */}
+        <div className="w-1/5 flex-shrink-0 pr-6 border-r border-border">
+          <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-3">
+            {thumbnailUrl ? (
+              <img
+                src={thumbnailUrl}
+                alt={artwork.title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <ImageIcon className="w-12 h-12 text-muted-foreground/50" />
+              </div>
+            )}
+          </div>
+          <h2 className="font-semibold text-lg mb-1">{artwork.title}</h2>
+          <p className="text-sm text-muted-foreground mb-2">
+            {artwork.artist.name || artwork.artist.username || 'Unknown Artist'}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {variationCount} variation{variationCount !== 1 ? 's' : ''}
+          </p>
+        </div>
+
+        {/* Right column: Variations list (80%) */}
+        <div className="flex-1 overflow-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : variations.length > 0 ? (
+            <div className="grid grid-cols-4 gap-4">
+              {variations.map((variation) => (
+                <div
+                  key={variation.id}
+                  className="group cursor-pointer"
+                  onClick={() => handleVariationClick(variation)}
+                >
+                  <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2 relative">
+                    <img
+                      src={getVariationThumbnailUrl(variation.id)}
+                      alt={`Variation #${variation.numbering}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                      onError={(e) => {
+                        // Hide broken images
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    {/* Variation number badge */}
+                    <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                      #{variation.numbering}
+                    </div>
+                    {/* Featured badge */}
+                    {variation.featured && (
+                      <div className="absolute top-2 right-2 bg-yellow-500 text-black text-xs px-2 py-1 rounded font-medium">
+                        Featured
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">
+                    by {variation.creator.name || variation.creator.username || 'Unknown'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              No variations found for this artwork
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,6 +203,7 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
   const [searchResults, setSearchResults] = useState<Artwork[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [selectedArtwork, setSelectedArtwork] = useState<Artwork | null>(null);
 
   const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000000';
 
@@ -163,6 +307,23 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, isAuthenticated, selectedOrgId]);
 
+  const handleArtworkClick = (artwork: Artwork) => {
+    // Only show detail view for GENERATIVE artworks with variations
+    if (artwork.type === 'GENERATIVE' && artwork.variations.count > 0) {
+      setSelectedArtwork(artwork);
+    }
+  };
+
+  // Show detail view if an artwork is selected
+  if (selectedArtwork) {
+    return (
+      <ArtworkDetail
+        artwork={selectedArtwork}
+        onBack={() => setSelectedArtwork(null)}
+      />
+    );
+  }
+
   if (isAuthenticated && isLoadingOrgs) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -234,21 +395,29 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
             <div className="grid grid-cols-4 gap-4">
               {searchResults.map((artwork) => {
                 const thumbnailUrl = getThumbnailUrl(artwork);
+                const isClickable = artwork.type === 'GENERATIVE' && artwork.variations.count > 0;
                 return (
                   <div
                     key={artwork.id}
-                    className="group cursor-pointer"
+                    className={`group ${isClickable ? 'cursor-pointer' : ''}`}
+                    onClick={() => handleArtworkClick(artwork)}
                   >
-                    <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2">
+                    <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2 relative">
                       {thumbnailUrl ? (
                         <img
                           src={thumbnailUrl}
                           alt={artwork.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          className={`w-full h-full object-cover ${isClickable ? 'group-hover:scale-105' : ''} transition-transform duration-200`}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-muted">
                           <ImageIcon className="w-12 h-12 text-muted-foreground/50" />
+                        </div>
+                      )}
+                      {/* Show variation count badge for generative artworks */}
+                      {artwork.type === 'GENERATIVE' && artwork.variations.count > 0 && (
+                        <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          {artwork.variations.count} var{artwork.variations.count !== 1 ? 's' : ''}
                         </div>
                       )}
                     </div>

@@ -516,3 +516,53 @@ export interface GetArtworkResult {
     get: Artwork;
   };
 }
+
+/**
+ * Get variations for a specific artwork
+ * Used to display the variations grid for generative artworks
+ */
+export const GET_ARTWORK_VARIATIONS = gql`
+  query GetArtworkVariations($artworkId: UUID!) {
+    Variation {
+      find(artwork_id: $artworkId) {
+        count
+        items {
+          id
+          numbering
+          url
+          featured
+          customizor
+          created
+          creator {
+            user_id
+            username
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
+export interface Variation {
+  id: string;
+  numbering: number;
+  url: string | null;
+  featured: boolean;
+  customizor: 'ARTIST' | 'CURATOR' | 'VIEWER';
+  created: string;
+  creator: {
+    user_id: string;
+    username: string | null;
+    name: string | null;
+  };
+}
+
+export interface GetArtworkVariationsResult {
+  Variation: {
+    find: {
+      count: number;
+      items: Variation[];
+    };
+  };
+}
