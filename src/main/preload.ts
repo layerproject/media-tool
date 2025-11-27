@@ -11,6 +11,16 @@ export interface GraphQLResponse<T = unknown> {
   errors?: Array<{ message: string; path?: string[]; locations?: Array<{ line: number; column: number }> }>;
 }
 
+// Recording options type (must match main/recorder.ts)
+export interface RecordingOptions {
+  url: string;
+  duration: number;
+  format: 'prores' | 'mp4';
+  resolution: '2k' | '4k';
+  artworkTitle: string;
+  variationNumbering: number;
+}
+
 // Define the API shape for type safety
 export interface ElectronAPI {
   getVersion: () => Promise<string>;
@@ -27,6 +37,13 @@ export interface ElectronAPI {
   getCookies: () => Promise<Array<{ name: string; value: string; domain?: string; path?: string }>>;
   // GraphQL proxy - routes requests through main process with proper cookies
   graphqlRequest: <T = unknown>(query: string, variables?: Record<string, unknown>) => Promise<GraphQLResponse<T>>;
+  // Recording methods
+  startRecording: (options: RecordingOptions) => Promise<void>;
+  stopRecording: () => Promise<void>;
+  isRecording: () => Promise<boolean>;
+  onRecordingProgress: (callback: (progress: number) => void) => void;
+  onRecordingComplete: (callback: (result: { outputPath: string | null; error?: string }) => void) => void;
+  removeRecordingListeners: () => void;
 }
 
 export interface PlatformInfo {
@@ -61,6 +78,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // GraphQL proxy - routes requests through main process with proper cookies
   graphqlRequest: <T = unknown>(query: string, variables?: Record<string, unknown>): Promise<GraphQLResponse<T>> =>
     ipcRenderer.invoke('graphql:request', query, variables),
+
+  // Recording methods
+  startRecording: (options: RecordingOptions): Promise<void> =>
+    ipcRenderer.invoke('recording:start', options),
+  stopRecording: (): Promise<void> =>
+    ipcRenderer.invoke('recording:stop'),
+  isRecording: (): Promise<boolean> =>
+    ipcRenderer.invoke('recording:isRecording'),
+  onRecordingProgress: (callback: (progress: number) => void): void => {
+    ipcRenderer.on('recording:progress', (_event, progress) => callback(progress));
+  },
+  onRecordingComplete: (callback: (result: { outputPath: string | null; error?: string }) => void): void => {
+    ipcRenderer.on('recording:complete', (_event, result) => callback(result));
+  },
+  removeRecordingListeners: (): void => {
+    ipcRenderer.removeAllListeners('recording:progress');
+    ipcRenderer.removeAllListeners('recording:complete');
+  },
 } as ElectronAPI);
 
 /**

@@ -1,7 +1,9 @@
 import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, session } from 'electron';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { exec } from 'child_process';
 import { authStore } from './store';
+import { startRecording, stopRecording, isRecording, RecordingOptions } from './recorder';
 
 // Load environment variables from .env.local (for development) or .env (for production)
 // In production builds, the .env file should be in the app resources folder
@@ -169,6 +171,41 @@ ipcMain.handle('auth:getCookies', async (): Promise<Electron.Cookie[]> => {
   const cookies = await session.defaultSession.cookies.get({ url: API_URL });
   console.log('Current cookies for', API_URL, ':', cookies);
   return cookies;
+});
+
+/**
+ * Recording IPC handlers
+ */
+ipcMain.handle('recording:start', async (
+  _event: IpcMainInvokeEvent,
+  options: RecordingOptions
+): Promise<void> => {
+  return new Promise((resolve) => {
+    startRecording(
+      options,
+      (progress) => {
+        // Send progress to renderer
+        mainWindow?.webContents.send('recording:progress', progress);
+      },
+      (outputPath, error) => {
+        // Send completion to renderer
+        mainWindow?.webContents.send('recording:complete', { outputPath, error });
+        // Play a higher-pitched macOS system sound on successful completion
+        if (outputPath && !error) {
+          exec('afplay /System/Library/Sounds/Glass.aiff');
+        }
+        resolve();
+      }
+    );
+  });
+});
+
+ipcMain.handle('recording:stop', (): void => {
+  stopRecording();
+});
+
+ipcMain.handle('recording:isRecording', (): boolean => {
+  return isRecording();
 });
 
 /**

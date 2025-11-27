@@ -2,6 +2,16 @@ import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ContentArea from './components/ContentArea';
 
+// Recording options type
+export interface RecordingOptions {
+  url: string;
+  duration: number;
+  format: 'prores' | 'mp4';
+  resolution: '2k' | '4k';
+  artworkTitle: string;
+  variationNumbering: number;
+}
+
 // Extend Window interface
 declare global {
   interface Window {
@@ -23,6 +33,13 @@ declare global {
         data?: T;
         errors?: Array<{ message: string; path?: string[]; locations?: Array<{ line: number; column: number }> }>;
       }>;
+      // Recording methods
+      startRecording: (options: RecordingOptions) => Promise<void>;
+      stopRecording: () => Promise<void>;
+      isRecording: () => Promise<boolean>;
+      onRecordingProgress: (callback: (progress: number) => void) => void;
+      onRecordingComplete: (callback: (result: { outputPath: string | null; error?: string }) => void) => void;
+      removeRecordingListeners: () => void;
     };
     platform: {
       isMac: boolean;
