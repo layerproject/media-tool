@@ -14,6 +14,15 @@ declare global {
       getRefreshToken: () => Promise<string | undefined>;
       clearTokens: () => Promise<void>;
       isTokenValid: () => Promise<boolean>;
+      // API cookie methods for GraphQL authentication
+      setApiCookie: (accessToken: string, refreshToken: string, expiresAt?: number) => Promise<void>;
+      clearApiCookie: () => Promise<void>;
+      getCookies: () => Promise<Array<{ name: string; value: string; domain?: string; path?: string }>>;
+      // GraphQL proxy - routes requests through main process with proper cookies
+      graphqlRequest: <T = unknown>(query: string, variables?: Record<string, unknown>) => Promise<{
+        data?: T;
+        errors?: Array<{ message: string; path?: string[]; locations?: Array<{ line: number; column: number }> }>;
+      }>;
     };
     platform: {
       isMac: boolean;

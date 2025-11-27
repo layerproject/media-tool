@@ -5,6 +5,12 @@ import { contextBridge, ipcRenderer } from 'electron';
  * This acts as a bridge between the main and renderer processes
  */
 
+// GraphQL response type
+export interface GraphQLResponse<T = unknown> {
+  data?: T;
+  errors?: Array<{ message: string; path?: string[]; locations?: Array<{ line: number; column: number }> }>;
+}
+
 // Define the API shape for type safety
 export interface ElectronAPI {
   getVersion: () => Promise<string>;
@@ -15,6 +21,12 @@ export interface ElectronAPI {
   getRefreshToken: () => Promise<string | undefined>;
   clearTokens: () => Promise<void>;
   isTokenValid: () => Promise<boolean>;
+  // API cookie methods for GraphQL authentication
+  setApiCookie: (accessToken: string, refreshToken: string, expiresAt?: number) => Promise<void>;
+  clearApiCookie: () => Promise<void>;
+  getCookies: () => Promise<Array<{ name: string; value: string; domain?: string; path?: string }>>;
+  // GraphQL proxy - routes requests through main process with proper cookies
+  graphqlRequest: <T = unknown>(query: string, variables?: Record<string, unknown>) => Promise<GraphQLResponse<T>>;
 }
 
 export interface PlatformInfo {
@@ -39,6 +51,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('auth:clearTokens'),
   isTokenValid: (): Promise<boolean> =>
     ipcRenderer.invoke('auth:isTokenValid'),
+  // API cookie methods for GraphQL authentication
+  setApiCookie: (accessToken: string, refreshToken: string, expiresAt?: number): Promise<void> =>
+    ipcRenderer.invoke('auth:setApiCookie', accessToken, refreshToken, expiresAt),
+  clearApiCookie: (): Promise<void> =>
+    ipcRenderer.invoke('auth:clearApiCookie'),
+  getCookies: (): Promise<Array<{ name: string; value: string; domain?: string; path?: string }>> =>
+    ipcRenderer.invoke('auth:getCookies'),
+  // GraphQL proxy - routes requests through main process with proper cookies
+  graphqlRequest: <T = unknown>(query: string, variables?: Record<string, unknown>): Promise<GraphQLResponse<T>> =>
+    ipcRenderer.invoke('graphql:request', query, variables),
 } as ElectronAPI);
 
 /**

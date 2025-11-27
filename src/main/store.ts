@@ -6,42 +6,46 @@ type AuthStore = {
   expiresAt?: number;
 };
 
-const store = new Store<AuthStore>({
-  name: 'auth',
-  encryptionKey: 'layer-media-tool-secure-key', // In production, use a more secure key
-}) as Store<AuthStore> & {
-  set: <K extends keyof AuthStore>(key: K, value: AuthStore[K]) => void;
-  get: <K extends keyof AuthStore>(key: K) => AuthStore[K];
-  delete: <K extends keyof AuthStore>(key: K) => void;
-};
+// Lazy initialization - store is created only when first accessed
+let store: Store<AuthStore> | null = null;
+
+function getStore(): Store<AuthStore> {
+  if (!store) {
+    store = new Store<AuthStore>({
+      name: 'auth',
+      encryptionKey: 'layer-media-tool-secure-key', // In production, use a more secure key
+    });
+  }
+  return store;
+}
 
 export const authStore = {
   setTokens: (accessToken: string, refreshToken: string, expiresAt: number) => {
-    store.set('accessToken', accessToken);
-    store.set('refreshToken', refreshToken);
-    store.set('expiresAt', expiresAt);
+    getStore().set('accessToken', accessToken);
+    getStore().set('refreshToken', refreshToken);
+    getStore().set('expiresAt', expiresAt);
   },
 
   getAccessToken: (): string | undefined => {
-    return store.get('accessToken');
+    return getStore().get('accessToken');
   },
 
   getRefreshToken: (): string | undefined => {
-    return store.get('refreshToken');
+    return getStore().get('refreshToken');
   },
 
   getExpiresAt: (): number | undefined => {
-    return store.get('expiresAt');
+    return getStore().get('expiresAt');
   },
 
   clearTokens: () => {
-    store.delete('accessToken');
-    store.delete('refreshToken');
-    store.delete('expiresAt');
+    getStore().delete('accessToken');
+    getStore().delete('refreshToken');
+    getStore().delete('expiresAt');
   },
 
   isTokenValid: (): boolean => {
-    const expiresAt = store.get('expiresAt');
+    const expiresAt = getStore().get('expiresAt');
     if (!expiresAt) return false;
     return Date.now() < expiresAt;
   },
