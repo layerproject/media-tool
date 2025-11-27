@@ -2,18 +2,53 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
-import { LogIn, Search } from 'lucide-react';
+import { LogIn, Search, Image as ImageIcon } from 'lucide-react';
 import { graphqlRequest, setAuthToken } from '@/lib/graphql';
 import {
   SEARCH_ARTWORKS,
   SearchArtworksResult,
   GET_USER_PROFILE,
   GetUserProfileResult,
-  UserOrganization
+  UserOrganization,
+  Artwork,
+  AssetMediaVariant
 } from '@/lib/queries';
 
 interface SearchArtworksProps {
   onNavigate?: (view: string) => void;
+}
+
+// API URL for thumbnail requests (generative artworks)
+const API_URL = 'http://localhost:3000';
+
+/**
+ * Get thumbnail URL from artwork
+ * - For VIDEO: Look for variant with resolution="thumbnail" and codec="jpg"
+ * - For GENERATIVE: Use the /api/thumbnail/artwork/{artwork_id}/thumbnail.jpg endpoint
+ */
+function getThumbnailUrl(artwork: Artwork): string | null {
+  // For GENERATIVE artworks, use the API thumbnail endpoint
+  if (artwork.type === 'GENERATIVE') {
+    // artwork_id is the actual artwork UUID (not the organization-artwork junction id)
+    return `${API_URL}/api/thumbnail/artwork/${artwork.artwork_id}/thumbnail.jpg`;
+  }
+
+  // For VIDEO assets, find thumbnail variant in the variants array
+  if (!artwork.versions?.length) return null;
+
+  const latestVersion = artwork.versions[0];
+  if (!latestVersion.assets?.length) return null;
+
+  const asset = latestVersion.assets[0];
+  if (!asset.variants?.length) return null;
+
+  const thumbnailVariant = asset.variants.find(
+    (v): v is AssetMediaVariant =>
+      v.__typename === 'AssetMediaVariant' &&
+      v.resolution === 'thumbnail' &&
+      v.codec === 'jpg'
+  );
+  return thumbnailVariant?.url || null;
 }
 
 const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
@@ -23,36 +58,25 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
   const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
+  const [searchResults, setSearchResults] = useState<Artwork[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
 
-  // Default organization ID (fallback)
   const DEFAULT_ORG_ID = 'a0000000-0000-0000-0000-000000000000';
 
-  // Fetch user's organizations when authenticated
   const fetchUserOrganizations = async () => {
     setIsLoadingOrgs(true);
     try {
-      console.log('📋 Fetching user organizations...');
       const result = await graphqlRequest<GetUserProfileResult>(GET_USER_PROFILE);
-
       const orgs = result.Profile.me?.organizations || [];
-      console.log('🏢 User organizations:', orgs);
-
       setOrganizations(orgs);
 
-      // Auto-select first organization if available, or use default
       if (orgs.length > 0 && !selectedOrgId) {
         setSelectedOrgId(orgs[0].id);
-        console.log('✅ Selected organization:', orgs[0].name, `(${orgs[0].id})`);
       } else if (orgs.length === 0) {
-        // Fallback to default organization
-        console.log('⚠️ No organizations found, using default:', DEFAULT_ORG_ID);
         setSelectedOrgId(DEFAULT_ORG_ID);
         setOrganizations([{ id: DEFAULT_ORG_ID, name: 'Default' }]);
       }
-    } catch (error) {
-      console.error('❌ Error fetching organizations:', error);
-      // On error, try default org
-      console.log('⚠️ Error fetching orgs, using default:', DEFAULT_ORG_ID);
+    } catch {
       setSelectedOrgId(DEFAULT_ORG_ID);
       setOrganizations([{ id: DEFAULT_ORG_ID, name: 'Default' }]);
     } finally {
@@ -61,50 +85,38 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
   };
 
   useEffect(() => {
-    // Check current session and set auth token
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setIsAuthenticated(!!session);
 
-      // Set auth token for GraphQL requests (include refresh token for cookie auth)
       if (session?.access_token && session?.refresh_token) {
         setAuthToken(session.access_token, session.refresh_token);
-        // Also set the cookie via Electron's session API (include expires_at for Supabase SSR)
         await window.electronAPI.setApiCookie(
           session.access_token,
           session.refresh_token,
           session.expires_at
         );
-        // Debug: Check if cookies were set
-        const cookies = await window.electronAPI.getCookies();
-        console.log('🍪 Cookies after setting:', cookies);
-        console.log('🔐 Session expires_at:', session.expires_at);
-        // Fetch organizations after setting auth token
         await fetchUserOrganizations();
       }
     };
 
     checkSession();
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setIsAuthenticated(!!session);
 
-      // Update auth token when session changes (include refresh token for cookie auth)
       if (session?.access_token && session?.refresh_token) {
         setAuthToken(session.access_token, session.refresh_token);
-        // Also set the cookie via Electron's session API (include expires_at for Supabase SSR)
         await window.electronAPI.setApiCookie(
           session.access_token,
           session.refresh_token,
           session.expires_at
         );
-        // Fetch organizations after setting auth token
         await fetchUserOrganizations();
       } else {
-        // Clear organizations and cookie on sign out
         setOrganizations([]);
         setSelectedOrgId(null);
+        setSearchResults([]);
         await window.electronAPI.clearApiCookie();
       }
     });
@@ -114,15 +126,18 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
     };
   }, []);
 
-  // Debounced search effect
   useEffect(() => {
-    if (!searchQuery.trim() || !isAuthenticated || !selectedOrgId) return;
+    if (!searchQuery.trim() || !isAuthenticated || !selectedOrgId) {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        setTotalCount(0);
+      }
+      return;
+    }
 
     const searchArtworks = async () => {
       setIsSearching(true);
       try {
-        console.log('🔍 Searching for:', searchQuery, 'in org:', selectedOrgId);
-
         const result = await graphqlRequest<SearchArtworksResult>(
           SEARCH_ARTWORKS,
           {
@@ -133,41 +148,21 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
           }
         );
 
-        console.log('✅ Search results:', result);
-        console.log('🏢 Organization:', result.Organization.get.name);
-        console.log('📊 Total count:', result.Organization.get.artworks.count);
-        console.log('🎨 Artworks:', result.Organization.get.artworks.items);
-
-        // Log each artwork with details
-        result.Organization.get.artworks.items.forEach((artwork, index) => {
-          console.log(`\n[${index + 1}] ${artwork.title}`);
-          console.log('   Artist:', artwork.artist.name, `(@${artwork.artist.username})`);
-          console.log('   Type:', artwork.type);
-          console.log('   Variations:', artwork.variations.count);
-          console.log('   Versions:', artwork.versions.length);
-          if (artwork.versions.length > 0) {
-            const latestVersion = artwork.versions[0];
-            console.log('   Latest version assets:', latestVersion.assets.length);
-            if (latestVersion.assets.length > 0 && latestVersion.assets[0].variants.length > 0) {
-              console.log('   Preview URL:', latestVersion.assets[0].variants[0].url);
-            }
-          }
-        });
-
+        setSearchResults(result.Organization.get.artworks.items);
+        setTotalCount(result.Organization.get.artworks.count);
       } catch (error) {
-        console.error('❌ Search error:', error);
+        console.error('Search error:', error);
+        setSearchResults([]);
+        setTotalCount(0);
       } finally {
         setIsSearching(false);
       }
     };
 
-    // Debounce search by 500ms
     const timeoutId = setTimeout(searchArtworks, 500);
-
     return () => clearTimeout(timeoutId);
   }, [searchQuery, isAuthenticated, selectedOrgId]);
 
-  // Show loading state while fetching organizations
   if (isAuthenticated && isLoadingOrgs) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -179,7 +174,6 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
     );
   }
 
-  // Show message if user has no organizations
   if (isAuthenticated && organizations.length === 0 && !isLoadingOrgs) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -227,14 +221,49 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
         )}
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 overflow-auto">
         {isSearching ? (
           <div className="text-center text-muted-foreground py-8">
             Searching...
           </div>
+        ) : searchResults.length > 0 ? (
+          <>
+            <p className="text-sm text-muted-foreground mb-4">
+              {totalCount} result{totalCount !== 1 ? 's' : ''} found
+            </p>
+            <div className="grid grid-cols-4 gap-4">
+              {searchResults.map((artwork) => {
+                const thumbnailUrl = getThumbnailUrl(artwork);
+                return (
+                  <div
+                    key={artwork.id}
+                    className="group cursor-pointer"
+                  >
+                    <div className="aspect-square bg-muted rounded-lg overflow-hidden mb-2">
+                      {thumbnailUrl ? (
+                        <img
+                          src={thumbnailUrl}
+                          alt={artwork.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-muted">
+                          <ImageIcon className="w-12 h-12 text-muted-foreground/50" />
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="font-medium text-sm truncate">{artwork.title}</h3>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {artwork.artist.name || artwork.artist.username || 'Unknown Artist'}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         ) : searchQuery.trim() ? (
           <div className="text-center text-muted-foreground py-8">
-            Check the browser console for search results
+            No artworks found for &quot;{searchQuery}&quot;
           </div>
         ) : (
           <div className="text-center text-muted-foreground py-8">
