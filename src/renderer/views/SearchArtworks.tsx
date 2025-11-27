@@ -16,9 +16,10 @@ import {
   GetArtworkVariationsResult,
   Variation
 } from '@/lib/queries';
+import { VariationData } from '@/App';
 
 interface SearchArtworksProps {
-  onNavigate?: (view: string) => void;
+  onNavigate?: (view: string, data?: VariationData) => void;
 }
 
 // API URL for thumbnail requests (generative artworks)
@@ -67,9 +68,10 @@ function getVariationThumbnailUrl(variationId: string): string {
 interface ArtworkDetailProps {
   artwork: Artwork;
   onBack: () => void;
+  onNavigate?: (view: string, data?: VariationData) => void;
 }
 
-const ArtworkDetail: React.FC<ArtworkDetailProps> = ({ artwork, onBack }) => {
+const ArtworkDetail: React.FC<ArtworkDetailProps> = ({ artwork, onBack, onNavigate }) => {
   const [variations, setVariations] = useState<Variation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [variationCount, setVariationCount] = useState(0);
@@ -96,12 +98,14 @@ const ArtworkDetail: React.FC<ArtworkDetailProps> = ({ artwork, onBack }) => {
   }, [artwork.artwork_id]);
 
   const handleVariationClick = (variation: Variation) => {
-    console.log('Variation clicked:', {
-      id: variation.id,
-      numbering: variation.numbering,
-      url: variation.url,
-      featured: variation.featured
-    });
+    if (onNavigate && variation.url) {
+      onNavigate('screen-record', {
+        artworkTitle: artwork.title,
+        variationId: variation.id,
+        variationNumbering: variation.numbering,
+        variationUrl: variation.url
+      });
+    }
   };
 
   const thumbnailUrl = getThumbnailUrl(artwork);
@@ -320,6 +324,7 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate }) => {
       <ArtworkDetail
         artwork={selectedArtwork}
         onBack={() => setSelectedArtwork(null)}
+        onNavigate={onNavigate}
       />
     );
   }

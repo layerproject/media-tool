@@ -5,13 +5,15 @@ import ScreenRecord from '@/views/ScreenRecord';
 import VideoTools from '@/views/VideoTools';
 import ImageTools from '@/views/ImageTools';
 import BunnyCDN from '@/views/BunnyCDN';
+import { VariationData } from '@/App';
 
 interface ContentAreaProps {
   activeView: string;
-  onNavigate?: (view: string) => void;
+  onNavigate?: (view: string, data?: VariationData) => void;
+  selectedVariation?: VariationData | null;
 }
 
-const ContentArea: React.FC<ContentAreaProps> = ({ activeView, onNavigate }) => {
+const ContentArea: React.FC<ContentAreaProps> = ({ activeView, onNavigate, selectedVariation }) => {
   const renderContent = () => {
     switch (activeView) {
       case 'sign-in-layer':
@@ -19,7 +21,14 @@ const ContentArea: React.FC<ContentAreaProps> = ({ activeView, onNavigate }) => 
       case 'search-artworks':
         return <SearchArtworks onNavigate={onNavigate} />;
       case 'screen-record':
-        return <ScreenRecord />;
+        return (
+          <ScreenRecord
+            artworkTitle={selectedVariation?.artworkTitle}
+            variationId={selectedVariation?.variationId}
+            variationNumbering={selectedVariation?.variationNumbering}
+            variationUrl={selectedVariation?.variationUrl}
+          />
+        );
       case 'video-tools':
         return <VideoTools />;
       case 'image-tools':

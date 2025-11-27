@@ -32,13 +32,33 @@ declare global {
   }
 }
 
+// Variation data for screen recording
+export interface VariationData {
+  artworkTitle: string;
+  variationId: string;
+  variationNumbering: number;
+  variationUrl: string;
+}
+
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<string>('search-artworks');
+  const [selectedVariation, setSelectedVariation] = useState<VariationData | null>(null);
+
+  const handleNavigate = (view: string, data?: VariationData) => {
+    setActiveView(view);
+    if (data) {
+      setSelectedVariation(data);
+    }
+  };
 
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar activeItem={activeView} onItemClick={setActiveView} />
-      <ContentArea activeView={activeView} onNavigate={setActiveView} />
+      <ContentArea
+        activeView={activeView}
+        onNavigate={handleNavigate}
+        selectedVariation={selectedVariation}
+      />
     </div>
   );
 };
