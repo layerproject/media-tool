@@ -116,6 +116,13 @@ ipcMain.handle('app:getPath', (_event: IpcMainInvokeEvent, name: string): string
 });
 
 /**
+ * Get the API URL from environment variables
+ */
+ipcMain.handle('app:getApiUrl', (): string => {
+  return API_URL;
+});
+
+/**
  * Auth storage IPC handlers
  */
 ipcMain.handle('auth:setTokens', (_event: IpcMainInvokeEvent, accessToken: string, refreshToken: string, expiresAt: number): void => {
@@ -181,7 +188,9 @@ ipcMain.handle('auth:setApiCookie', async (_event: IpcMainInvokeEvent, accessTok
 
   // Cookie name format: sb-<project-ref>-auth-token
   // Project ref extracted from Supabase URL
-  const cookieName = 'sb-sxfoqpyacxczdxxknkhb-auth-token';
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || '';
+  const cookieName = `sb-${projectRef}-auth-token`;
 
   // Set the cookie for the API domain
   // Use secure cookies for HTTPS (production), non-secure for localhost (development)
@@ -202,7 +211,9 @@ ipcMain.handle('auth:setApiCookie', async (_event: IpcMainInvokeEvent, accessTok
  * Clear the API auth cookie
  */
 ipcMain.handle('auth:clearApiCookie', async (): Promise<void> => {
-  const cookieName = 'sb-sxfoqpyacxczdxxknkhb-auth-token';
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || '';
+  const cookieName = `sb-${projectRef}-auth-token`;
 
   try {
     await session.defaultSession.cookies.remove(API_URL, cookieName);
@@ -265,9 +276,21 @@ ipcMain.handle('graphql:request', async (_event: IpcMainInvokeEvent, query: stri
 
   // Get all auth cookies (Supabase may chunk large sessions into multiple cookies)
   // Cookie pattern: sb-<project-ref>-auth-token, sb-<project-ref>-auth-token.0, etc.
-  const cookiePrefix = 'sb-sxfoqpyacxczdxxknkhb-auth-token';
+  // Extract project ref from NEXT_PUBLIC_SUPABASE_URL (e.g., https://zurlsszhneycrkijevri.supabase.co)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || '';
+  const cookiePrefix = `sb-${projectRef}-auth-token`;
+
+  console.log('🔍 GraphQL request debug:');
+  console.log('   GRAPHQL_ENDPOINT:', GRAPHQL_ENDPOINT);
+  console.log('   supabaseUrl:', supabaseUrl);
+  console.log('   projectRef:', projectRef);
+  console.log('   cookiePrefix:', cookiePrefix);
+
   const allCookies = await session.defaultSession.cookies.get({ url: API_URL });
   const authCookies = allCookies.filter(c => c.name.startsWith(cookiePrefix));
+
+  console.log('   All cookies for', API_URL, ':', allCookies.map(c => c.name));
 
   // Build cookie header string with all matching cookies
   // Do NOT URL-encode - the base64 value should be sent as-is

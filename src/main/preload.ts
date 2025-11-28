@@ -103,6 +103,7 @@ export interface BunnyDownloadProgress {
 export interface ElectronAPI {
   getVersion: () => Promise<string>;
   getPath: (name: string) => Promise<string>;
+  getApiUrl: () => Promise<string>;
   // Auth storage methods
   setTokens: (accessToken: string, refreshToken: string, expiresAt: number) => Promise<void>;
   getAccessToken: () => Promise<string | undefined>;
@@ -166,6 +167,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // App information
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   getPath: (name: string): Promise<string> => ipcRenderer.invoke('app:getPath', name),
+  getApiUrl: (): Promise<string> => ipcRenderer.invoke('app:getApiUrl'),
 
   // Auth storage methods
   setTokens: (accessToken: string, refreshToken: string, expiresAt: number): Promise<void> =>

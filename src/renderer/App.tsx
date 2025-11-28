@@ -19,6 +19,7 @@ declare global {
     electronAPI: {
       getVersion: () => Promise<string>;
       getPath: (name: string) => Promise<string>;
+      getApiUrl: () => Promise<string>;
       // Auth storage methods
       setTokens: (accessToken: string, refreshToken: string, expiresAt: number) => Promise<void>;
       getAccessToken: () => Promise<string | undefined>;

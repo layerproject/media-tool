@@ -25,7 +25,7 @@ import {
   GetCdnUrlResult
 } from '@/lib/queries';
 import { VariationData, SearchState } from '@/App';
-import { API_URL, DEFAULT_ORG_ID } from '@/lib/constants';
+import { getApiUrl, initApiUrl, DEFAULT_ORG_ID } from '@/lib/constants';
 
 interface SearchArtworksProps {
   onNavigate?: (view: string, data?: VariationData) => void;
@@ -42,7 +42,7 @@ function getThumbnailUrl(artwork: Artwork): string | null {
   // For GENERATIVE artworks, use the API thumbnail endpoint
   if (artwork.type === 'GENERATIVE') {
     // artwork_id is the actual artwork UUID (not the organization-artwork junction id)
-    return `${API_URL}/api/thumbnail/artwork/${artwork.artwork_id}/thumbnail.jpg`;
+    return `${getApiUrl()}/api/thumbnail/artwork/${artwork.artwork_id}/thumbnail.jpg`;
   }
 
   // For VIDEO assets, find thumbnail variant in the variants array
@@ -67,7 +67,7 @@ function getThumbnailUrl(artwork: Artwork): string | null {
  * Get thumbnail URL for a variation
  */
 function getVariationThumbnailUrl(variationId: string): string {
-  return `${API_URL}/api/thumbnail/variation/${variationId}/thumbnail.jpg`;
+  return `${getApiUrl()}/api/thumbnail/variation/${variationId}/thumbnail.jpg`;
 }
 
 /**
@@ -98,7 +98,7 @@ function getAssetDownloadInfo(artwork: Artwork): { assetId: string; filename: st
  */
 function getArtworkCurationUrl(artwork: Artwork): string {
   const artworkType = artwork.type.toLowerCase();
-  return `${API_URL}/orgs/${DEFAULT_ORG_ID}/curation/${artworkType}/${artwork.artwork_id}`;
+  return `${getApiUrl()}/orgs/${DEFAULT_ORG_ID}/curation/${artworkType}/${artwork.artwork_id}`;
 }
 
 /**
@@ -335,7 +335,11 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
   };
 
   useEffect(() => {
-    const checkSession = async () => {
+    const initialize = async () => {
+      // Initialize API URL from main process environment
+      await initApiUrl();
+
+      // Check authentication session
       const { data: { session } } = await supabase.auth.getSession();
       setIsAuthenticated(!!session);
 
@@ -350,7 +354,7 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
       }
     };
 
-    checkSession();
+    initialize();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setIsAuthenticated(!!session);

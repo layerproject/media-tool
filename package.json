@@ -17,8 +17,7 @@
     "dev": "npm run watch:main & npm run watch:renderer & electron . --dev",
     "prebuild": "npm run build:all",
     "build": "electron-builder --dir",
-    "build:mac": "export $(cat .env.build | grep -v '^#' | xargs) && electron-builder --mac",
-    "build:mac:unsigned": "electron-builder --mac",
+    "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux",
     "build:all:platforms": "electron-builder -mwl",
@@ -109,13 +108,8 @@
         "dmg",
         "zip"
       ],
-      "icon": "build/icons/icons/mac/icon.icns",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "icon": "build/icons/icons/mac/icon.icns"
     },
-    "afterSign": "scripts/notarize.js",
     "win": {
       "target": [
         "nsis",
