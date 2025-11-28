@@ -2,10 +2,7 @@ import { BrowserWindow } from 'electron';
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-
-// Get ffmpeg/ffprobe paths from the installer packages
-const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-const ffprobePath = require('@ffprobe-installer/ffprobe').path;
+import { ffmpegPath, ffprobePath } from './ffmpeg-paths';
 
 export type ImageFormat = 'jpeg' | 'png';
 export type Resolution = '2k' | '4k' | '8k';

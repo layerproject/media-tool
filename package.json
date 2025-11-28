@@ -93,7 +93,8 @@
       "buildResources": "build"
     },
     "files": [
-      "dist/**/*",
+      "dist/main/**/*",
+      "dist/renderer/**/*",
       "assets/**/*",
       "package.json"
     ],
@@ -102,6 +103,10 @@
         "from": ".env.production",
         "to": ".env"
       }
+    ],
+    "asarUnpack": [
+      "node_modules/@ffmpeg-installer/**/*",
+      "node_modules/@ffprobe-installer/**/*"
     ],
     "mac": {
       "category": "public.app-category.utilities",

@@ -1,9 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
-
-const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
-const ffprobePath = require('@ffprobe-installer/ffprobe').path;
+import { ffmpegPath, ffprobePath } from './ffmpeg-paths';
 
 // Track active processes for cancellation
 let activeProcesses: ChildProcess[] = [];

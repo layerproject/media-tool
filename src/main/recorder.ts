@@ -3,9 +3,7 @@ import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-
-// Get ffmpeg path from the installer package
-const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+import { ffmpegPath } from './ffmpeg-paths';
 
 export interface RecordingOptions {
   url: string;
