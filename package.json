@@ -17,7 +17,8 @@
     "dev": "npm run watch:main & npm run watch:renderer & electron . --dev",
     "prebuild": "npm run build:all",
     "build": "electron-builder --dir",
-    "build:mac": "electron-builder --mac",
+    "build:mac": "export $(cat .env.build | grep -v '^#' | xargs) && electron-builder --mac",
+    "build:mac:unsigned": "electron-builder --mac",
     "build:win": "electron-builder --win",
     "build:linux": "electron-builder --linux",
     "build:all:platforms": "electron-builder -mwl",
@@ -59,6 +60,7 @@
     "tailwind-merge": "^2.2.0"
   },
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
     "@types/electron-store": "^1.3.1",
     "@types/node": "^20.10.5",
     "@types/react": "^18.2.45",
@@ -68,7 +70,7 @@
     "autoprefixer": "^10.4.16",
     "css-loader": "^6.8.1",
     "dotenv-webpack": "^8.1.1",
-    "electron": "^28.3.3",
+    "electron": "^35.7.5",
     "electron-builder": "^24.9.1",
     "eslint": "^8.56.0",
     "eslint-plugin-react": "^7.33.2",
@@ -95,20 +97,31 @@
       "assets/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": ".env.production",
+        "to": ".env"
+      }
+    ],
     "mac": {
       "category": "public.app-category.utilities",
       "target": [
         "dmg",
         "zip"
       ],
-      "icon": "build/icons/icon.icns"
+      "icon": "build/icons/icons/mac/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
+    "afterSign": "scripts/notarize.js",
     "win": {
       "target": [
         "nsis",
         "portable"
       ],
-      "icon": "build/icons/icon.ico"
+      "icon": "build/icons/icons/win/icon.ico"
     },
     "linux": {
       "target": [
@@ -116,7 +129,7 @@
         "deb"
       ],
       "category": "Utility",
-      "icon": "build/icons"
+      "icon": "build/icons/icons/png"
     }
   }
 }

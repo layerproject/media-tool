@@ -25,11 +25,21 @@ import {
 } from './bunny-api';
 
 // Load environment variables from .env.local (for development) or .env (for production)
-// In production builds, the .env file should be in the app resources folder
-const envLocalPath = path.join(__dirname, '../../.env.local');
-const envPath = path.join(__dirname, '../../.env');
-dotenv.config({ path: envLocalPath });
-dotenv.config({ path: envPath });
+// In production builds, the .env file is in the app resources folder via extraResources
+const isDevelopment = !app.isPackaged;
+
+if (isDevelopment) {
+  // Development: load from project root
+  const envLocalPath = path.join(__dirname, '../../.env.local');
+  const envPath = path.join(__dirname, '../../.env');
+  dotenv.config({ path: envLocalPath });
+  dotenv.config({ path: envPath });
+} else {
+  // Production: load from resources folder (extraResources copies .env.production to resources/.env)
+  const resourcesPath = process.resourcesPath;
+  const envPath = path.join(resourcesPath, '.env');
+  dotenv.config({ path: envPath });
+}
 
 // API URL for setting cookies and GraphQL requests
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
