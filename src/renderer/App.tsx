@@ -47,6 +47,7 @@ declare global {
       selectVideoFiles: () => Promise<{ filePaths: string[] }>;
       selectVideoFolder: () => Promise<{ filePaths: string[] }>;
       selectDestinationFolder: () => Promise<{ filePath: string | null }>;
+      selectMultipleFolders: () => Promise<{ filePaths: string[] }>;
       // Web assets processing
       processWebAssets: (filePaths: string[], outputDir: string) => Promise<void>;
       cancelWebAssets: () => Promise<void>;
@@ -89,6 +90,44 @@ declare global {
         outputFolder?: string;
       }) => void) => void;
       removeFrameCaptureListeners: () => void;
+      // Bunny CDN config
+      setBunnyConfig: (config: {
+        storageApiKey: string;
+        storageZoneName: string;
+        apiKey: string;
+        pullZoneId: string;
+        defaultRemotePath: string;
+      }) => Promise<void>;
+      getBunnyConfig: () => Promise<{
+        storageApiKey: string;
+        storageZoneName: string;
+        apiKey: string;
+        pullZoneId: string;
+        defaultRemotePath: string;
+      } | null>;
+      clearBunnyConfig: () => Promise<void>;
+      hasBunnyConfig: () => Promise<boolean>;
+      // Bunny CDN upload/download
+      uploadFoldersToBunny: (folderPaths: string[]) => Promise<void>;
+      scanBunnyContent: () => Promise<{ totalFiles: number; totalBytes: number }>;
+      downloadFromBunny: (destinationFolder: string) => Promise<void>;
+      onBunnyUploadProgress: (callback: (progress: {
+        totalFiles: number;
+        uploadedFiles: number;
+        currentFile: string;
+        status: 'uploading' | 'completed' | 'error';
+        error?: string;
+      }) => void) => void;
+      onBunnyDownloadProgress: (callback: (progress: {
+        totalFiles: number;
+        downloadedFiles: number;
+        currentFile: string;
+        totalBytes: number;
+        downloadedBytes: number;
+        status: 'listing' | 'downloading' | 'completed' | 'error';
+        error?: string;
+      }) => void) => void;
+      removeBunnyListeners: () => void;
     };
     platform: {
       isMac: boolean;

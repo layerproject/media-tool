@@ -71,6 +71,34 @@ export interface VideoInfo {
   height: number;
 }
 
+// Bunny CDN config type
+export interface BunnyConfig {
+  storageApiKey: string;
+  storageZoneName: string;
+  apiKey: string;
+  pullZoneId: string;
+  defaultRemotePath: string;
+}
+
+// Bunny upload/download progress types
+export interface BunnyUploadProgress {
+  totalFiles: number;
+  uploadedFiles: number;
+  currentFile: string;
+  status: 'uploading' | 'completed' | 'error';
+  error?: string;
+}
+
+export interface BunnyDownloadProgress {
+  totalFiles: number;
+  downloadedFiles: number;
+  currentFile: string;
+  totalBytes: number;
+  downloadedBytes: number;
+  status: 'listing' | 'downloading' | 'completed' | 'error';
+  error?: string;
+}
+
 // Define the API shape for type safety
 export interface ElectronAPI {
   getVersion: () => Promise<string>;
@@ -100,6 +128,7 @@ export interface ElectronAPI {
   selectVideoFiles: () => Promise<{ filePaths: string[] }>;
   selectVideoFolder: () => Promise<{ filePaths: string[] }>;
   selectDestinationFolder: () => Promise<{ filePath: string | null }>;
+  selectMultipleFolders: () => Promise<{ filePaths: string[] }>;
   // Web assets processing
   processWebAssets: (filePaths: string[], outputDir: string) => Promise<void>;
   cancelWebAssets: () => Promise<void>;
@@ -113,6 +142,18 @@ export interface ElectronAPI {
   isCapturing: () => Promise<boolean>;
   onFrameCaptureProgress: (callback: (progress: FrameCaptureProgress) => void) => void;
   removeFrameCaptureListeners: () => void;
+  // Bunny CDN config
+  setBunnyConfig: (config: BunnyConfig) => Promise<void>;
+  getBunnyConfig: () => Promise<BunnyConfig | null>;
+  clearBunnyConfig: () => Promise<void>;
+  hasBunnyConfig: () => Promise<boolean>;
+  // Bunny CDN upload/download
+  uploadFoldersToBunny: (folderPaths: string[]) => Promise<void>;
+  scanBunnyContent: () => Promise<{ totalFiles: number; totalBytes: number }>;
+  downloadFromBunny: (destinationFolder: string) => Promise<void>;
+  onBunnyUploadProgress: (callback: (progress: BunnyUploadProgress) => void) => void;
+  onBunnyDownloadProgress: (callback: (progress: BunnyDownloadProgress) => void) => void;
+  removeBunnyListeners: () => void;
 }
 
 export interface PlatformInfo {
@@ -175,6 +216,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('dialog:selectVideoFolder'),
   selectDestinationFolder: (): Promise<{ filePath: string | null }> =>
     ipcRenderer.invoke('dialog:selectDestinationFolder'),
+  selectMultipleFolders: (): Promise<{ filePaths: string[] }> =>
+    ipcRenderer.invoke('dialog:selectMultipleFolders'),
   // Web assets processing
   processWebAssets: (filePaths: string[], outputDir: string): Promise<void> =>
     ipcRenderer.invoke('webAssets:process', filePaths, outputDir),
@@ -202,6 +245,32 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeFrameCaptureListeners: (): void => {
     ipcRenderer.removeAllListeners('frameCapture:progress');
+  },
+  // Bunny CDN config
+  setBunnyConfig: (config: BunnyConfig): Promise<void> =>
+    ipcRenderer.invoke('bunny:setConfig', config),
+  getBunnyConfig: (): Promise<BunnyConfig | null> =>
+    ipcRenderer.invoke('bunny:getConfig'),
+  clearBunnyConfig: (): Promise<void> =>
+    ipcRenderer.invoke('bunny:clearConfig'),
+  hasBunnyConfig: (): Promise<boolean> =>
+    ipcRenderer.invoke('bunny:hasConfig'),
+  // Bunny CDN upload/download
+  uploadFoldersToBunny: (folderPaths: string[]): Promise<void> =>
+    ipcRenderer.invoke('bunny:uploadFolders', folderPaths),
+  scanBunnyContent: (): Promise<{ totalFiles: number; totalBytes: number }> =>
+    ipcRenderer.invoke('bunny:scanContent'),
+  downloadFromBunny: (destinationFolder: string): Promise<void> =>
+    ipcRenderer.invoke('bunny:downloadContent', destinationFolder),
+  onBunnyUploadProgress: (callback: (progress: BunnyUploadProgress) => void): void => {
+    ipcRenderer.on('bunny:uploadProgress', (_event, progress) => callback(progress));
+  },
+  onBunnyDownloadProgress: (callback: (progress: BunnyDownloadProgress) => void): void => {
+    ipcRenderer.on('bunny:downloadProgress', (_event, progress) => callback(progress));
+  },
+  removeBunnyListeners: (): void => {
+    ipcRenderer.removeAllListeners('bunny:uploadProgress');
+    ipcRenderer.removeAllListeners('bunny:downloadProgress');
   },
 } as ElectronAPI);
 

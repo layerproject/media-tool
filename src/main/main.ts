@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { exec } from 'child_process';
-import { authStore } from './store';
+import { authStore, bunnyConfigStore, BunnyConfig } from './store';
 import { startRecording, stopRecording, isRecording, RecordingOptions } from './recorder';
 import { processVideoFile, getVideoFiles, generateThumbnail, cancelProcessing, resetCancellation, wasCancelled } from './video-processor';
 import {
@@ -16,6 +16,13 @@ import {
   VideoFrameCaptureOptions,
   FrameCaptureProgress,
 } from './frame-capturer';
+import {
+  uploadFolders,
+  downloadAllContent,
+  scanStorageContent,
+  UploadProgress,
+  DownloadProgress,
+} from './bunny-api';
 
 // Load environment variables from .env.local (for development) or .env (for production)
 // In production builds, the .env file should be in the app resources folder
@@ -119,6 +126,25 @@ ipcMain.handle('auth:clearTokens', (): void => {
 
 ipcMain.handle('auth:isTokenValid', (): boolean => {
   return authStore.isTokenValid();
+});
+
+/**
+ * Bunny CDN config IPC handlers
+ */
+ipcMain.handle('bunny:setConfig', (_event: IpcMainInvokeEvent, config: BunnyConfig): void => {
+  bunnyConfigStore.setConfig(config);
+});
+
+ipcMain.handle('bunny:getConfig', (): BunnyConfig | null => {
+  return bunnyConfigStore.getConfig();
+});
+
+ipcMain.handle('bunny:clearConfig', (): void => {
+  bunnyConfigStore.clearConfig();
+});
+
+ipcMain.handle('bunny:hasConfig', (): boolean => {
+  return bunnyConfigStore.hasConfig();
 });
 
 /**
@@ -391,6 +417,19 @@ ipcMain.handle('dialog:selectDestinationFolder', async (): Promise<{ filePath: s
   return { filePath: result.filePaths[0] };
 });
 
+ipcMain.handle('dialog:selectMultipleFolders', async (): Promise<{ filePaths: string[] }> => {
+  const result = await dialog.showOpenDialog({
+    title: 'Select Folders to Upload',
+    properties: ['openDirectory', 'multiSelections'],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { filePaths: [] };
+  }
+
+  return { filePaths: result.filePaths };
+});
+
 /**
  * Web assets processing
  */
@@ -545,4 +584,39 @@ ipcMain.handle('frameCapture:stop', (): void => {
 // Check if capture is in progress
 ipcMain.handle('frameCapture:isCapturing', (): boolean => {
   return isCapturing();
+});
+
+/**
+ * Bunny CDN upload/download IPC handlers
+ */
+
+// Upload folders to Bunny Storage
+ipcMain.handle('bunny:uploadFolders', async (
+  _event: IpcMainInvokeEvent,
+  folderPaths: string[]
+): Promise<void> => {
+  await uploadFolders(folderPaths, (progress: UploadProgress) => {
+    mainWindow?.webContents.send('bunny:uploadProgress', progress);
+  });
+
+  // Play success sound on completion
+  exec('afplay /System/Library/Sounds/Glass.aiff');
+});
+
+// Scan storage content to get file count and total size
+ipcMain.handle('bunny:scanContent', async (): Promise<{ totalFiles: number; totalBytes: number }> => {
+  return scanStorageContent();
+});
+
+// Download all content from Bunny Storage
+ipcMain.handle('bunny:downloadContent', async (
+  _event: IpcMainInvokeEvent,
+  destinationFolder: string
+): Promise<void> => {
+  await downloadAllContent(destinationFolder, (progress: DownloadProgress) => {
+    mainWindow?.webContents.send('bunny:downloadProgress', progress);
+  });
+
+  // Play success sound on completion
+  exec('afplay /System/Library/Sounds/Glass.aiff');
 });
