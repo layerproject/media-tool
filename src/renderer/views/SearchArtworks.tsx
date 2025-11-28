@@ -317,7 +317,9 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
     setIsLoadingOrgs(true);
     try {
       const result = await graphqlRequest<GetUserProfileResult>(GET_USER_PROFILE);
+      console.log('🔍 GET_USER_PROFILE result:', JSON.stringify(result, null, 2));
       const orgs = result.Profile.me?.organizations || [];
+      console.log('📋 Organizations found:', orgs.length, orgs);
       setOrganizations(orgs);
 
       if (orgs.length > 0 && !selectedOrgId) {
@@ -386,6 +388,7 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
     }
 
     setIsSearching(true);
+    console.log('🔍 Searching with orgId:', selectedOrgId);
     try {
       const result = await graphqlRequest<SearchArtworksResult>(
         SEARCH_ARTWORKS,

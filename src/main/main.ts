@@ -24,20 +24,28 @@ import {
   DownloadProgress,
 } from './bunny-api';
 
-// Load environment variables from .env.local (for development) or .env (for production)
-// In production builds, the .env file is in the app resources folder via extraResources
+// Load environment variables from .env.local (for development) or .env.production (for production)
+// Use --prod flag to test production env locally without packaging
 const isDevelopment = !app.isPackaged;
+const useProductionEnv = process.argv.includes('--prod');
 
-if (isDevelopment) {
+if (isDevelopment && !useProductionEnv) {
   // Development: load from project root
   const envLocalPath = path.join(__dirname, '../../.env.local');
   const envPath = path.join(__dirname, '../../.env');
+  console.log('📁 Loading development env from:', envLocalPath);
   dotenv.config({ path: envLocalPath });
   dotenv.config({ path: envPath });
+} else if (isDevelopment && useProductionEnv) {
+  // Development with --prod flag: load .env.production from project root
+  const envProdPath = path.join(__dirname, '../../.env.production');
+  console.log('📁 Loading production env from:', envProdPath);
+  dotenv.config({ path: envProdPath });
 } else {
-  // Production: load from resources folder (extraResources copies .env.production to resources/.env)
+  // Production build: load from resources folder (extraResources copies .env.production to resources/.env)
   const resourcesPath = process.resourcesPath;
   const envPath = path.join(resourcesPath, '.env');
+  console.log('📁 Loading production env from resources:', envPath);
   dotenv.config({ path: envPath });
 }
 
@@ -286,6 +294,9 @@ ipcMain.handle('graphql:request', async (_event: IpcMainInvokeEvent, query: stri
   console.log('   supabaseUrl:', supabaseUrl);
   console.log('   projectRef:', projectRef);
   console.log('   cookiePrefix:', cookiePrefix);
+  if (variables) {
+    console.log('   variables:', JSON.stringify(variables));
+  }
 
   const allCookies = await session.defaultSession.cookies.get({ url: API_URL });
   const authCookies = allCookies.filter(c => c.name.startsWith(cookiePrefix));

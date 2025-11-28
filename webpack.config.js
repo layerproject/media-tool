@@ -2,6 +2,9 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const Dotenv = require('dotenv-webpack');
 
+// Use .env.production for production builds, .env.local for development
+const envFile = process.env.NODE_ENV === 'production' ? './.env.production' : './.env.local';
+
 module.exports = {
   entry: './src/renderer/index.tsx',
   target: 'electron-renderer',
@@ -59,7 +62,7 @@ module.exports = {
       filename: 'index.html'
     }),
     new Dotenv({
-      path: './.env.local',
+      path: envFile,
       safe: false,
       systemvars: true
     })
