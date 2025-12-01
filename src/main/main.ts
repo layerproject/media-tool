@@ -23,6 +23,13 @@ import {
   UploadProgress,
   DownloadProgress,
 } from './bunny-api';
+import {
+  generateGifs,
+  cancelGifGeneration,
+  getVideoDuration,
+  GifOptions,
+  GifProgress,
+} from './gif-generator';
 
 // Load environment variables from .env.local (for development) or .env.production (for production)
 // Use --prod flag to test production env locally without packaging
@@ -663,4 +670,34 @@ ipcMain.handle('bunny:downloadContent', async (
 
   // Play success sound on completion
   exec('afplay /System/Library/Sounds/Glass.aiff');
+});
+
+/**
+ * GIF Generation IPC handlers
+ */
+
+// Get video duration
+ipcMain.handle('gif:getVideoDuration', async (
+  _event: IpcMainInvokeEvent,
+  filePath: string
+): Promise<number> => {
+  return getVideoDuration(filePath);
+});
+
+// Generate GIFs
+ipcMain.handle('gif:generate', async (
+  _event: IpcMainInvokeEvent,
+  options: GifOptions
+): Promise<void> => {
+  await generateGifs(options, (progress: GifProgress) => {
+    mainWindow?.webContents.send('gif:progress', progress);
+  });
+
+  // Play success sound on completion
+  exec('afplay /System/Library/Sounds/Glass.aiff');
+});
+
+// Cancel GIF generation
+ipcMain.handle('gif:cancel', (): void => {
+  cancelGifGeneration();
 });

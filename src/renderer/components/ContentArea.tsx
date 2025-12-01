@@ -4,6 +4,7 @@ import SearchArtworks from '@/views/SearchArtworks';
 import ScreenRecord from '@/views/ScreenRecord';
 import VideoTools from '@/views/VideoTools';
 import FramesCapture from '@/views/FramesCapture';
+import MakeGif from '@/views/MakeGif';
 import BunnyCDN from '@/views/BunnyCDN';
 import { VariationData, SearchState } from '@/App';
 
@@ -50,6 +51,8 @@ const ContentArea: React.FC<ContentAreaProps> = ({ activeView, onNavigate, selec
             variationUrl={selectedVariation?.variationUrl}
           />
         );
+      case 'make-gif':
+        return <MakeGif />;
       case 'bunny-cdn':
         return <BunnyCDN />;
       default:

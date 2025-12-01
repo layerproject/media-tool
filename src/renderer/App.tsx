@@ -129,6 +129,28 @@ declare global {
         error?: string;
       }) => void) => void;
       removeBunnyListeners: () => void;
+      // GIF generation
+      getVideoDuration: (filePath: string) => Promise<number>;
+      generateGif: (options: {
+        inputPath: string;
+        startTime: number;
+        endTime: number;
+        targetSizes: ('10mb' | '5mb' | '2mb' | '1mb')[];
+        scales: ('original' | '720p' | '480p' | '360p' | '240p')[];
+        fps: number;
+        dithering: boolean;
+      }) => Promise<void>;
+      cancelGif: () => Promise<void>;
+      onGifProgress: (callback: (progress: {
+        currentExport: number;
+        totalExports: number;
+        scale: string;
+        targetSize: string;
+        progress: number;
+        status: 'generating' | 'completed' | 'error';
+        error?: string;
+      }) => void) => void;
+      removeGifListeners: () => void;
     };
     platform: {
       isMac: boolean;

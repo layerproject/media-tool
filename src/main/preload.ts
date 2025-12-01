@@ -99,6 +99,30 @@ export interface BunnyDownloadProgress {
   error?: string;
 }
 
+// GIF generation types
+export type TargetSize = '10mb' | '5mb' | '2mb' | '1mb';
+export type GifScale = 'original' | '720p' | '480p' | '360p' | '240p';
+
+export interface GifOptions {
+  inputPath: string;
+  startTime: number;
+  endTime: number;
+  targetSizes: TargetSize[];
+  scales: GifScale[];
+  fps: number;
+  dithering: boolean;
+}
+
+export interface GifProgress {
+  currentExport: number;
+  totalExports: number;
+  scale: string;
+  targetSize: string;
+  progress: number;
+  status: 'generating' | 'completed' | 'error';
+  error?: string;
+}
+
 // Define the API shape for type safety
 export interface ElectronAPI {
   getVersion: () => Promise<string>;
@@ -155,6 +179,12 @@ export interface ElectronAPI {
   onBunnyUploadProgress: (callback: (progress: BunnyUploadProgress) => void) => void;
   onBunnyDownloadProgress: (callback: (progress: BunnyDownloadProgress) => void) => void;
   removeBunnyListeners: () => void;
+  // GIF generation
+  getVideoDuration: (filePath: string) => Promise<number>;
+  generateGif: (options: GifOptions) => Promise<void>;
+  cancelGif: () => Promise<void>;
+  onGifProgress: (callback: (progress: GifProgress) => void) => void;
+  removeGifListeners: () => void;
 }
 
 export interface PlatformInfo {
@@ -273,6 +303,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeBunnyListeners: (): void => {
     ipcRenderer.removeAllListeners('bunny:uploadProgress');
     ipcRenderer.removeAllListeners('bunny:downloadProgress');
+  },
+  // GIF generation
+  getVideoDuration: (filePath: string): Promise<number> =>
+    ipcRenderer.invoke('gif:getVideoDuration', filePath),
+  generateGif: (options: GifOptions): Promise<void> =>
+    ipcRenderer.invoke('gif:generate', options),
+  cancelGif: (): Promise<void> =>
+    ipcRenderer.invoke('gif:cancel'),
+  onGifProgress: (callback: (progress: GifProgress) => void): void => {
+    ipcRenderer.on('gif:progress', (_event, progress) => callback(progress));
+  },
+  removeGifListeners: (): void => {
+    ipcRenderer.removeAllListeners('gif:progress');
   },
 } as ElectronAPI);
 
