@@ -169,11 +169,6 @@ export const GET_ARTWORK_BY_ID = gql`
           count
           items {
             id
-            title
-            artist {
-              username
-              name
-            }
           }
         }
         versions {
@@ -188,14 +183,11 @@ export const GET_ARTWORK_BY_ID = gql`
             variants {
               ... on AssetGenerativeVariant {
                 url
-                width
-                height
               }
               ... on AssetMediaVariant {
                 url
                 width
                 height
-                duration
               }
             }
           }
@@ -203,7 +195,6 @@ export const GET_ARTWORK_BY_ID = gql`
         organizations {
           id
           name
-          slug
         }
       }
     }
@@ -257,14 +248,11 @@ export const GET_ARTWORKS_BY_ARTIST = gql`
               variants {
                 ... on AssetGenerativeVariant {
                   url
-                  width
-                  height
                 }
                 ... on AssetMediaVariant {
                   url
                   width
                   height
-                  duration
                 }
               }
             }
@@ -321,14 +309,11 @@ export const GET_FEATURED_ARTWORKS = gql`
               variants {
                 ... on AssetGenerativeVariant {
                   url
-                  width
-                  height
                 }
                 ... on AssetMediaVariant {
                   url
                   width
                   height
-                  duration
                 }
               }
             }
@@ -386,14 +371,11 @@ export const GET_ARTWORKS_BY_TYPE = gql`
               variants {
                 ... on AssetGenerativeVariant {
                   url
-                  width
-                  height
                 }
                 ... on AssetMediaVariant {
                   url
                   width
                   height
-                  duration
                 }
               }
             }

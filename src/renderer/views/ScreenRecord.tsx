@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -7,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RefreshCw, Square } from 'lucide-react';
+import { RefreshCw, Square, Link, X } from 'lucide-react';
 
 export interface ScreenRecordProps {
   artistName?: string;
@@ -39,11 +40,25 @@ const getEstimatedDiskSpace = (resolution: Resolution, durationSec: number): str
   return `~${Math.round(totalKB / 1024)} MB`;
 };
 
+/**
+ * Validate that a URL is a valid Layer asset view URL
+ * Expected format: https://core.layer.com/view/asset/{assetId}
+ */
+function isValidLayerAssetUrl(url: string): boolean {
+  try {
+    const urlObj = new URL(url);
+    // Check if it's a layer.com domain and has /view/asset/ path
+    return urlObj.hostname.endsWith('layer.com') && urlObj.pathname.includes('/view/asset/');
+  } catch {
+    return false;
+  }
+}
+
 const ScreenRecord: React.FC<ScreenRecordProps> = ({
-  artistName,
-  artworkTitle,
-  variationNumbering,
-  variationUrl
+  artistName: propArtistName,
+  artworkTitle: propArtworkTitle,
+  variationNumbering: propVariationNumbering,
+  variationUrl: propVariationUrl
 }) => {
   const [iframeKey, setIframeKey] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
@@ -54,6 +69,21 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
   const [duration, setDuration] = useState<Duration>('30');
   const [resolution, setResolution] = useState<Resolution>('2k');
   const [format, setFormat] = useState<Format>('mp4');
+
+  // URL input state
+  const [urlInput, setUrlInput] = useState('');
+  const [urlError, setUrlError] = useState<string | null>(null);
+
+  // Override state from URL input
+  const [overrideArtistName, setOverrideArtistName] = useState<string | null>(null);
+  const [overrideArtworkTitle, setOverrideArtworkTitle] = useState<string | null>(null);
+  const [overrideVariationUrl, setOverrideVariationUrl] = useState<string | null>(null);
+
+  // Use override values if set, otherwise use props
+  const artistName = overrideArtistName ?? propArtistName;
+  const artworkTitle = overrideArtworkTitle ?? propArtworkTitle;
+  const variationNumbering = overrideArtistName ? 0 : propVariationNumbering; // Always 0 for URL-loaded artworks
+  const variationUrl = overrideVariationUrl ?? propVariationUrl;
 
   // Clear status when any recording option changes
   const handleDurationChange = (val: Duration) => {
@@ -137,24 +167,119 @@ const ScreenRecord: React.FC<ScreenRecordProps> = ({
     setIframeKey(prev => prev + 1);
   };
 
-  // Show placeholder if no variation is selected
+  // Handle loading artwork from URL
+  const handleLoadFromUrl = () => {
+    const trimmedUrl = urlInput.trim();
+
+    if (!isValidLayerAssetUrl(trimmedUrl)) {
+      setUrlError('Invalid URL. Expected format: https://core.layer.com/view/asset/{assetId}');
+      return;
+    }
+
+    // Extract a title from the URL (use asset ID as fallback title)
+    const urlObj = new URL(trimmedUrl);
+    const pathParts = urlObj.pathname.split('/');
+    const assetId = pathParts[pathParts.length - 1] || 'Unknown';
+
+    // Set override values - use the URL directly as the iframe source
+    setOverrideArtistName('Unknown');
+    setOverrideArtworkTitle(`Asset ${assetId.substring(0, 8)}...`);
+    setOverrideVariationUrl(trimmedUrl);
+    setUrlInput('');
+    setUrlError(null);
+    setStatus('');
+  };
+
+  // Handle URL input key press
+  const handleUrlKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleLoadFromUrl();
+    }
+  };
+
+  // Clear override and go back to placeholder
+  const handleClearOverride = () => {
+    setOverrideArtistName(null);
+    setOverrideArtworkTitle(null);
+    setOverrideVariationUrl(null);
+    setUrlInput('');
+    setUrlError(null);
+    setStatus('');
+  };
+
+  // Show placeholder if no variation is selected (either from props or URL)
   if (!variationUrl) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        Select a variation from an artwork to start recording
+      <div className="flex items-center justify-center h-full">
+        <div className="max-w-md w-full space-y-6 text-center">
+          <div className="text-muted-foreground">
+            Select a variation from an artwork to start recording
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or paste a Layer URL</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Link className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="https://core.layer.com/view/asset/..."
+                  value={urlInput}
+                  onChange={(e) => {
+                    setUrlInput(e.target.value);
+                    setUrlError(null);
+                  }}
+                  onKeyDown={handleUrlKeyDown}
+                  className="pl-9"
+                />
+              </div>
+              <Button onClick={handleLoadFromUrl} disabled={!urlInput.trim()}>
+                Load
+              </Button>
+            </div>
+            {urlError && (
+              <p className="text-sm text-destructive">{urlError}</p>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
+
+  // Check if we're using URL-loaded artwork
+  const isFromUrl = overrideArtistName !== null;
 
   return (
     <div className="h-full flex flex-col">
       {/* Top bar */}
       <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
-        <div className="text-sm">
+        <div className="text-sm flex items-center gap-2">
           <span className="font-medium">{artworkTitle}</span>
-          <span className="text-muted-foreground ml-2">
-            #{variationNumbering}
-          </span>
+          {variationNumbering !== undefined && variationNumbering > 0 && (
+            <span className="text-muted-foreground">
+              #{variationNumbering}
+            </span>
+          )}
+          {isFromUrl && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearOverride}
+              className="h-6 px-2 text-muted-foreground hover:text-foreground"
+              disabled={isRecording}
+            >
+              <X className="w-3 h-3 mr-1" />
+              Clear
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* Duration dropdown */}
