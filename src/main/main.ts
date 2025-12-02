@@ -331,7 +331,25 @@ ipcMain.handle('graphql:request', async (_event: IpcMainInvokeEvent, query: stri
       body: JSON.stringify({ query, variables }),
     });
 
-    const result = await response.json();
+    // Check if response is OK and has JSON content type
+    const contentType = response.headers.get('content-type') || '';
+    const responseText = await response.text();
+
+    console.log('📥 GraphQL response:');
+    console.log('   Status:', response.status, response.statusText);
+    console.log('   Content-Type:', contentType);
+
+    if (!response.ok) {
+      console.error('   Response body:', responseText.substring(0, 500));
+      throw new Error(`HTTP ${response.status}: ${response.statusText} - ${responseText.substring(0, 200)}`);
+    }
+
+    if (!contentType.includes('application/json')) {
+      console.error('   Non-JSON response:', responseText.substring(0, 500));
+      throw new Error(`Expected JSON but got ${contentType}: ${responseText.substring(0, 200)}`);
+    }
+
+    const result = JSON.parse(responseText);
 
     if (result.errors) {
       console.error('GraphQL errors:', result.errors);

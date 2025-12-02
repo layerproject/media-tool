@@ -18,6 +18,7 @@ import {
   UserOrganization,
   Artwork,
   AssetMediaVariant,
+  AssetGenerativeVariant,
   GET_ARTWORK_VARIATIONS,
   GetArtworkVariationsResult,
   Variation,
@@ -68,6 +69,27 @@ function getThumbnailUrl(artwork: Artwork): string | null {
  */
 function getVariationThumbnailUrl(variationId: string): string {
   return `${getApiUrl()}/api/thumbnail/variation/${variationId}/thumbnail.jpg`;
+}
+
+/**
+ * Get generative URL from artwork (for artworks without variations)
+ * Returns the iframe URL from the AssetGenerativeVariant
+ */
+function getGenerativeUrl(artwork: Artwork): string | null {
+  if (artwork.type !== 'GENERATIVE') return null;
+  if (!artwork.versions?.length) return null;
+
+  const latestVersion = artwork.versions[0];
+  if (!latestVersion.assets?.length) return null;
+
+  const asset = latestVersion.assets[0];
+  if (!asset.variants?.length) return null;
+
+  const generativeVariant = asset.variants.find(
+    (v): v is AssetGenerativeVariant =>
+      v.__typename === 'AssetGenerativeVariant' && !!v.url
+  );
+  return generativeVariant?.url || null;
 }
 
 /**
@@ -291,6 +313,7 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
   const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   // Use persisted state from parent, with local fallback
   const searchQuery = searchState?.searchQuery ?? '';
@@ -388,6 +411,7 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
     }
 
     setIsSearching(true);
+    setSearchError(null);
     console.log('🔍 Searching with orgId:', selectedOrgId);
     try {
       const result = await graphqlRequest<SearchArtworksResult>(
@@ -405,7 +429,9 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
         totalCount: result.Organization.get.artworks.count,
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Search error:', error);
+      setSearchError(errorMessage);
       updateState({ searchResults: [], totalCount: 0 });
     } finally {
       setIsSearching(false);
@@ -422,6 +448,21 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
     // For GENERATIVE artworks with variations, show detail view
     if (artwork.type === 'GENERATIVE' && artwork.variations.count > 0) {
       setSelectedArtwork(artwork);
+      return;
+    }
+
+    // For GENERATIVE artworks without variations, navigate directly to screen-record with iframe URL
+    if (artwork.type === 'GENERATIVE' && artwork.variations.count === 0) {
+      const generativeUrl = getGenerativeUrl(artwork);
+      if (generativeUrl && onNavigate) {
+        onNavigate('screen-record', {
+          artistName: artwork.artist.name || artwork.artist.username || 'Unknown',
+          artworkTitle: artwork.title,
+          variationId: artwork.artwork_id, // Use artwork_id as identifier
+          variationNumbering: 0, // No variation numbering
+          variationUrl: generativeUrl
+        });
+      }
       return;
     }
 
@@ -523,6 +564,12 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
         )}
       </div>
 
+      {searchError && (
+        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+          <strong>Search Error:</strong> {searchError}
+        </div>
+      )}
+
       <div className="flex-1 overflow-auto">
         {isSearching ? (
           <div className="text-center text-muted-foreground py-8">
@@ -536,9 +583,11 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
             <div className="grid grid-cols-4 gap-4">
               {searchResults.map((artwork) => {
                 const thumbnailUrl = getThumbnailUrl(artwork);
-                const isGenerativeClickable = artwork.type === 'GENERATIVE' && artwork.variations.count > 0;
+                const hasGenerativeUrl = artwork.type === 'GENERATIVE' && !!getGenerativeUrl(artwork);
+                const isGenerativeWithVariations = artwork.type === 'GENERATIVE' && artwork.variations.count > 0;
+                const isGenerativeWithoutVariations = artwork.type === 'GENERATIVE' && artwork.variations.count === 0 && hasGenerativeUrl;
                 const isVideoClickable = artwork.type === 'VIDEO' && !!getAssetDownloadInfo(artwork);
-                const isClickable = isGenerativeClickable || isVideoClickable;
+                const isClickable = isGenerativeWithVariations || isGenerativeWithoutVariations || isVideoClickable;
                 return (
                   <ContextMenu key={artwork.id}>
                     <ContextMenuTrigger asChild>
@@ -558,10 +607,16 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
                               <ImageIcon className="w-12 h-12 text-muted-foreground/50" />
                             </div>
                           )}
-                          {/* Show variation count badge for generative artworks */}
+                          {/* Show variation count badge for generative artworks with variations */}
                           {artwork.type === 'GENERATIVE' && artwork.variations.count > 0 && (
                             <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
                               {artwork.variations.count} var{artwork.variations.count !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                          {/* Show capture indicator for generative artworks without variations */}
+                          {isGenerativeWithoutVariations && (
+                            <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                              Capture
                             </div>
                           )}
                           {/* Show download indicator for VIDEO artworks */}
@@ -587,6 +642,29 @@ const SearchArtworks: React.FC<SearchArtworksProps> = ({ onNavigate, searchState
                           <Download className="w-4 h-4 mr-2" />
                           Download Video
                         </ContextMenuItem>
+                      )}
+                      {isGenerativeWithoutVariations && (
+                        <>
+                          <ContextMenuItem onClick={() => handleArtworkClick(artwork)}>
+                            <Video className="w-4 h-4 mr-2" />
+                            Capture Video
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => {
+                            const generativeUrl = getGenerativeUrl(artwork);
+                            if (generativeUrl && onNavigate) {
+                              onNavigate('frames-capture', {
+                                artistName: artwork.artist.name || artwork.artist.username || 'Unknown',
+                                artworkTitle: artwork.title,
+                                variationId: artwork.artwork_id,
+                                variationNumbering: 0,
+                                variationUrl: generativeUrl
+                              });
+                            }
+                          }}>
+                            <Camera className="w-4 h-4 mr-2" />
+                            Capture Frames
+                          </ContextMenuItem>
+                        </>
                       )}
                     </ContextMenuContent>
                   </ContextMenu>
