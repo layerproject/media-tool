@@ -151,6 +151,33 @@ declare global {
         error?: string;
       }) => void) => void;
       removeGifListeners: () => void;
+      // Video compression
+      getVideoMetadata: (filePath: string) => Promise<{
+        width: number;
+        height: number;
+        duration: number;
+        size: number;
+        bitrate: number;
+        codec: string;
+      }>;
+      compressVideo: (options: {
+        inputPath: string;
+        scale: 'original' | '1080p' | '720p' | '480p';
+        crf: number;
+        preset: 'slow' | 'medium' | 'fast' | 'veryfast';
+        audioBitrate: number;
+        removeAudio: boolean;
+      }) => Promise<void>;
+      cancelCompression: () => Promise<void>;
+      onCompressProgress: (callback: (progress: {
+        progress: number;
+        currentSize: number;
+        estimatedSize: number;
+        status: 'compressing' | 'completed' | 'error' | 'cancelled';
+        outputPath?: string;
+        error?: string;
+      }) => void) => void;
+      removeCompressListeners: () => void;
     };
     platform: {
       isMac: boolean;
@@ -197,15 +224,23 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar activeItem={activeView} onItemClick={setActiveView} />
-      <ContentArea
-        activeView={activeView}
-        onNavigate={handleNavigate}
-        selectedVariation={selectedVariation}
-        searchState={searchState}
-        onSearchStateChange={setSearchState}
+    <div className="flex flex-col h-screen overflow-hidden">
+      {/* Custom title bar for macOS - draggable area */}
+      <div
+        className="h-9 bg-background flex-shrink-0"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       />
+      {/* Main content */}
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar activeItem={activeView} onItemClick={setActiveView} />
+        <ContentArea
+          activeView={activeView}
+          onNavigate={handleNavigate}
+          selectedVariation={selectedVariation}
+          searchState={searchState}
+          onSearchStateChange={setSearchState}
+        />
+      </div>
     </div>
   );
 };

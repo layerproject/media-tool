@@ -211,7 +211,7 @@ export const GET_ARTWORKS_BY_ARTIST = gql`
     $offset: Int = 0
   ) {
     Artwork {
-      search(
+      all(
         filter: {
           artist_id: $artist_id
           status: PUBLISHED
@@ -272,7 +272,7 @@ export const GET_FEATURED_ARTWORKS = gql`
     $offset: Int = 0
   ) {
     Artwork {
-      search(
+      all(
         filter: {
           featured: true
           status: PUBLISHED
@@ -334,7 +334,7 @@ export const GET_ARTWORKS_BY_TYPE = gql`
     $offset: Int = 0
   ) {
     Artwork {
-      search(
+      all(
         filter: {
           type: $type
           status: PUBLISHED

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import WebAssets from './video-tools/WebAssets';
+import Compress from './video-tools/Compress';
 
-type SubView = 'web-assets';
+type SubView = 'web-assets' | 'compress';
 
 interface NavItem {
   id: SubView;
@@ -10,10 +11,12 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: 'web-assets', label: 'Web Assets' },
+  { id: 'compress', label: 'Compress' },
 ];
 
 const subViewComponents: Record<SubView, React.FC> = {
   'web-assets': WebAssets,
+  'compress': Compress,
 };
 
 const VideoTools: React.FC = () => {

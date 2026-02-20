@@ -30,6 +30,14 @@ import {
   GifOptions,
   GifProgress,
 } from './gif-generator';
+import {
+  compressVideo,
+  cancelCompression,
+  getVideoMetadata,
+  CompressOptions,
+  CompressProgress,
+  VideoMetadata,
+} from './video-compressor';
 
 // Load environment variables from .env.local (for development) or .env.production (for production)
 // Use --prod flag to test production env locally without packaging
@@ -73,6 +81,8 @@ function createWindow(): void {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    titleBarStyle: 'hidden',  // macOS: completely hides title bar
+    trafficLightPosition: { x: 16, y: 12 },  // Position the traffic lights in our custom bar
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -718,4 +728,34 @@ ipcMain.handle('gif:generate', async (
 // Cancel GIF generation
 ipcMain.handle('gif:cancel', (): void => {
   cancelGifGeneration();
+});
+
+/**
+ * Video Compression IPC handlers
+ */
+
+// Get video metadata
+ipcMain.handle('compress:getMetadata', async (
+  _event: IpcMainInvokeEvent,
+  filePath: string
+): Promise<VideoMetadata> => {
+  return getVideoMetadata(filePath);
+});
+
+// Compress video
+ipcMain.handle('compress:start', async (
+  _event: IpcMainInvokeEvent,
+  options: CompressOptions
+): Promise<void> => {
+  await compressVideo(options, (progress: CompressProgress) => {
+    mainWindow?.webContents.send('compress:progress', progress);
+  });
+
+  // Play success sound on completion
+  exec('afplay /System/Library/Sounds/Glass.aiff');
+});
+
+// Cancel compression
+ipcMain.handle('compress:cancel', (): void => {
+  cancelCompression();
 });

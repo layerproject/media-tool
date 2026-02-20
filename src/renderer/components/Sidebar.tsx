@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Video, Camera, MonitorPlay, Cloud, LogIn, LogOut, Film } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/lib/supabase';
 
 interface MenuItem {
@@ -64,12 +63,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemClick }) => {
   };
 
   return (
-    <div className="w-64 h-screen bg-card border-r border-border flex flex-col">
+    <div className="w-64 h-full bg-card flex flex-col">
       <div className="p-4">
         <h1 className="text-lg font-semibold text-foreground">Layer Media Tool</h1>
       </div>
-
-      <Separator />
 
       <nav className="flex-1 p-2">
         <ul className="space-y-1">
@@ -80,10 +77,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemClick }) => {
                 className={`
                   w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm
                   transition-colors duration-150
-                  ${
-                    activeItem === item.id
-                      ? 'bg-primary text-primary-foreground font-medium'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  ${activeItem === item.id
+                    ? 'bg-primary text-primary-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   }
                 `}
               >
@@ -94,8 +90,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemClick }) => {
           ))}
         </ul>
       </nav>
-
-      <Separator />
 
       <div className="p-2">
         {userEmail ? (
@@ -118,10 +112,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeItem, onItemClick }) => {
             className={`
               w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm
               transition-colors duration-150
-              ${
-                activeItem === authMenuItem.id
-                  ? 'bg-primary text-primary-foreground font-medium'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+              ${activeItem === authMenuItem.id
+                ? 'bg-primary text-primary-foreground font-medium'
+                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               }
             `}
           >

@@ -123,6 +123,37 @@ export interface GifProgress {
   error?: string;
 }
 
+// Video compression types
+export type CompressScale = 'original' | '1080p' | '720p' | '480p';
+export type CompressPreset = 'slow' | 'medium' | 'fast' | 'veryfast';
+
+export interface CompressOptions {
+  inputPath: string;
+  scale: CompressScale;
+  crf: number;
+  preset: CompressPreset;
+  audioBitrate: number;
+  removeAudio: boolean;
+}
+
+export interface CompressProgress {
+  progress: number;
+  currentSize: number;
+  estimatedSize: number;
+  status: 'compressing' | 'completed' | 'error' | 'cancelled';
+  outputPath?: string;
+  error?: string;
+}
+
+export interface VideoMetadata {
+  width: number;
+  height: number;
+  duration: number;
+  size: number;
+  bitrate: number;
+  codec: string;
+}
+
 // Define the API shape for type safety
 export interface ElectronAPI {
   getVersion: () => Promise<string>;
@@ -185,6 +216,12 @@ export interface ElectronAPI {
   cancelGif: () => Promise<void>;
   onGifProgress: (callback: (progress: GifProgress) => void) => void;
   removeGifListeners: () => void;
+  // Video compression
+  getVideoMetadata: (filePath: string) => Promise<VideoMetadata>;
+  compressVideo: (options: CompressOptions) => Promise<void>;
+  cancelCompression: () => Promise<void>;
+  onCompressProgress: (callback: (progress: CompressProgress) => void) => void;
+  removeCompressListeners: () => void;
 }
 
 export interface PlatformInfo {
@@ -316,6 +353,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeGifListeners: (): void => {
     ipcRenderer.removeAllListeners('gif:progress');
+  },
+  // Video compression
+  getVideoMetadata: (filePath: string): Promise<VideoMetadata> =>
+    ipcRenderer.invoke('compress:getMetadata', filePath),
+  compressVideo: (options: CompressOptions): Promise<void> =>
+    ipcRenderer.invoke('compress:start', options),
+  cancelCompression: (): Promise<void> =>
+    ipcRenderer.invoke('compress:cancel'),
+  onCompressProgress: (callback: (progress: CompressProgress) => void): void => {
+    ipcRenderer.on('compress:progress', (_event, progress) => callback(progress));
+  },
+  removeCompressListeners: (): void => {
+    ipcRenderer.removeAllListeners('compress:progress');
   },
 } as ElectronAPI);
 

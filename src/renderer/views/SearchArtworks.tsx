@@ -40,10 +40,13 @@ interface SearchArtworksProps {
  * - For GENERATIVE: Use the /api/thumbnail/artwork/{artwork_id}/thumbnail.jpg endpoint
  */
 function getThumbnailUrl(artwork: Artwork): string | null {
-  // For GENERATIVE artworks, use the API thumbnail endpoint
+  // For GENERATIVE artworks, use the asset ID to construct the thumbnail URL directly.
+  // The /api/thumbnail/asset/ endpoint is more reliable than the deprecated /api/thumbnail/artwork/
+  // endpoint which requires an extra server-side RPC lookup to resolve artwork -> asset.
   if (artwork.type === 'GENERATIVE') {
-    // artwork_id is the actual artwork UUID (not the organization-artwork junction id)
-    return `${getApiUrl()}/api/thumbnail/artwork/${artwork.artwork_id}/thumbnail.jpg`;
+    const asset = artwork.versions?.[0]?.assets?.[0];
+    if (!asset?.id) return null;
+    return `${getApiUrl()}/api/thumbnail/asset/${asset.id}/thumbnail.jpg`;
   }
 
   // For VIDEO assets, find thumbnail variant in the variants array
